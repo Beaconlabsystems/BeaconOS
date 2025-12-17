@@ -12,7 +12,6 @@ import {
   Calculator,
   Users,
   Settings,
-  LogOut,
   ChevronLeft,
   ChevronRight,
   Command,
@@ -21,8 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useAuth } from '@/app/providers';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useCommandPalette } from '@/app/providers';
 import { useState } from 'react';
 import {
@@ -44,7 +42,6 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { appUser, signOut } = useAuth();
   const { toggle } = useCommandPalette();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -157,41 +154,19 @@ export function Sidebar() {
             )}
           >
             <Avatar className="h-8 w-8">
-              <AvatarImage src={appUser?.avatar_url || ''} />
               <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                {appUser?.full_name
-                  ? appUser.full_name
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')
-                      .toUpperCase()
-                  : 'U'}
+                TM
               </AvatarFallback>
             </Avatar>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
-                  {appUser?.full_name || 'User'}
-                </p>
+                <p className="text-sm font-medium truncate">Tungi</p>
                 <p className="text-xs text-muted-foreground truncate">
-                  {appUser?.email}
+                  Beacon Labs
                 </p>
               </div>
             )}
           </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={signOut}
-            className={cn(
-              'w-full justify-start text-muted-foreground hover:text-destructive',
-              collapsed && 'justify-center px-0'
-            )}
-          >
-            <LogOut className="h-4 w-4" />
-            {!collapsed && <span className="ml-2">Sign Out</span>}
-          </Button>
         </div>
 
         {/* Collapse Toggle */}

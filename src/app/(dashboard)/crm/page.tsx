@@ -45,12 +45,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAuth } from '@/app/providers';
-import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn, formatDate } from '@/lib/utils';
 import type { CRMContact, ContactType, ContactStage, InvestmentStage } from '@/types';
 import { CONTACT_STAGE_LABELS, INVESTMENT_STAGE_LABELS } from '@/types';
+import { format, addDays } from 'date-fns';
 
 const STAGE_COLORS: Record<ContactStage, string> = {
   lead: 'bg-gray-500',
@@ -62,11 +61,58 @@ const STAGE_COLORS: Record<ContactStage, string> = {
   passed: 'bg-red-500',
 };
 
+// Mock data for demo
+const MOCK_CONTACTS: CRMContact[] = [
+  {
+    id: '1',
+    user_id: 'demo',
+    name: 'Sarah Johnson',
+    company: 'TechVentures Capital',
+    role: 'Partner',
+    email: 'sarah@techventures.com',
+    phone: '+44 7700 900001',
+    linkedin_url: 'https://linkedin.com/in/sarahjohnson',
+    contact_type: 'investor',
+    stage: 'meeting',
+    investment_stage: null,
+    next_action: 'Send updated pitch deck',
+    next_action_date: format(addDays(new Date(), 3), 'yyyy-MM-dd'),
+    last_contact_date: new Date().toISOString(),
+    notes: 'Very interested in our AI technology. Mentioned they typically invest £500k-£2M.',
+    tags: [],
+    is_warm: true,
+    priority: 5,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '2',
+    user_id: 'demo',
+    name: 'Michael Chen',
+    company: 'InnovateCorp',
+    role: 'Head of Partnerships',
+    email: 'michael@innovatecorp.com',
+    phone: null,
+    linkedin_url: null,
+    contact_type: 'partner',
+    stage: 'contacted',
+    investment_stage: null,
+    next_action: null,
+    next_action_date: null,
+    last_contact_date: new Date().toISOString(),
+    notes: 'Potential distribution partner for European markets.',
+    tags: [],
+    is_warm: false,
+    priority: 3,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 export default function CRMPage() {
-  const { appUser } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [contacts, setContacts] = useState<CRMContact[]>([]);
+  const [contacts, setContacts] = useState<CRMContact[]>(MOCK_CONTACTS);
   const [filteredContacts, setFilteredContacts] = useState<CRMContact[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStage, setFilterStage] = useState<ContactStage | 'all'>('all');
@@ -92,10 +138,10 @@ export default function CRMPage() {
   });
 
   useEffect(() => {
-    if (appUser) {
-      fetchContacts();
-    }
-  }, [appUser]);
+    // Simulate loading
+    const timer = setTimeout(() => setLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     let filtered = contacts;
@@ -121,83 +167,81 @@ export default function CRMPage() {
     setFilteredContacts(filtered);
   }, [contacts, searchQuery, filterStage, filterType]);
 
-  const fetchContacts = async () => {
-    if (!appUser) return;
 
-    setLoading(true);
-    const supabase = createClient();
+  const handleSaveContact = () => {
+    if (!formData.name) return;
 
-    const { data, error } = await supabase
-      .from('crm_contacts')
-      .select('*')
-      .eq('user_id', appUser.id)
-      .order('priority', { ascending: false });
-
-    setContacts((data || []) as CRMContact[]);
-    setLoading(false);
-  };
-
-  const handleSaveContact = async () => {
-    if (!appUser || !formData.name) return;
-
-    const supabase = createClient();
-
-    const contactData = {
-      name: formData.name,
-      company: formData.company || null,
-      role: formData.role || null,
-      email: formData.email || null,
-      phone: formData.phone || null,
-      linkedin_url: formData.linkedin_url || null,
-      contact_type: formData.contact_type,
-      stage: formData.stage,
-      investment_stage: formData.investment_stage || null,
-      next_action: formData.next_action || null,
-      next_action_date: formData.next_action_date || null,
-      notes: formData.notes || null,
-      is_warm: formData.is_warm,
-    };
-
-    try {
-      if (editingContact) {
-        await supabase
-          .from('crm_contacts')
-          .update(contactData)
-          .eq('id', editingContact.id);
-        toast({ title: 'Contact updated' });
-      } else {
-        await supabase.from('crm_contacts').insert({
-          ...contactData,
-          user_id: appUser.id,
-        });
-        toast({ title: 'Contact added' });
-      }
-
-      setIsDialogOpen(false);
-      setEditingContact(null);
-      resetForm();
-      fetchContacts();
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error saving contact' });
+    if (editingContact) {
+      setContacts(contacts.map(c =>
+        c.id === editingContact.id
+          ? {
+              ...c,
+              name: formData.name,
+              company: formData.company || null,
+              role: formData.role || null,
+              email: formData.email || null,
+              phone: formData.phone || null,
+              linkedin_url: formData.linkedin_url || null,
+              contact_type: formData.contact_type,
+              stage: formData.stage,
+              investment_stage: formData.investment_stage || null,
+              next_action: formData.next_action || null,
+              next_action_date: formData.next_action_date || null,
+              notes: formData.notes || null,
+              is_warm: formData.is_warm,
+            }
+          : c
+      ));
+      toast({ title: 'Contact updated' });
+    } else {
+      const newContact: CRMContact = {
+        id: Date.now().toString(),
+        user_id: 'demo',
+        name: formData.name,
+        company: formData.company || null,
+        role: formData.role || null,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        linkedin_url: formData.linkedin_url || null,
+        contact_type: formData.contact_type,
+        stage: formData.stage,
+        investment_stage: formData.investment_stage || null,
+        next_action: formData.next_action || null,
+        next_action_date: formData.next_action_date || null,
+        notes: formData.notes || null,
+        is_warm: formData.is_warm,
+        priority: 1,
+        last_contact_date: new Date().toISOString(),
+        tags: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      setContacts([...contacts, newContact]);
+      toast({ title: 'Contact added' });
     }
+
+    setIsDialogOpen(false);
+    setEditingContact(null);
+    resetForm();
   };
 
-  const handleDeleteContact = async (id: string) => {
-    const supabase = createClient();
-    await supabase.from('crm_contacts').delete().eq('id', id);
+  const handleDeleteContact = (id: string) => {
+    setContacts(contacts.filter(c => c.id !== id));
     toast({ title: 'Contact deleted' });
     setSelectedContact(null);
-    fetchContacts();
   };
 
-  const handleUpdateStage = async (id: string, stage: ContactStage) => {
-    const supabase = createClient();
-    const update: any = { stage };
-    if (stage === 'contacted') {
-      update.last_contact_date = new Date().toISOString().split('T')[0];
-    }
-    await supabase.from('crm_contacts').update(update).eq('id', id);
-    fetchContacts();
+  const handleUpdateStage = (id: string, stage: ContactStage) => {
+    setContacts(contacts.map(c => {
+      if (c.id === id) {
+        const update: any = { ...c, stage };
+        if (stage === 'contacted') {
+          update.last_contact_date = new Date().toISOString().split('T')[0];
+        }
+        return update;
+      }
+      return c;
+    }));
   };
 
   const resetForm = () => {

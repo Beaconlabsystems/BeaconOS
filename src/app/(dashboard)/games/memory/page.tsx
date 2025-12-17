@@ -7,8 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth } from '@/app/providers';
-import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -30,7 +28,6 @@ const DIFFICULTY_CONFIG = {
 };
 
 export default function MemoryGamePage() {
-  const { appUser } = useAuth();
   const { toast } = useToast();
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [cards, setCards] = useState<MemoryCard[]>([]);
@@ -92,29 +89,12 @@ export default function MemoryGamePage() {
     }
   }, [matches, difficulty]);
 
-  const saveScore = async () => {
-    if (!appUser) return;
-
+  const saveScore = () => {
     const score = calculateScore();
-    const supabase = createClient();
 
-    try {
-      await supabase.from('memory_game_scores').insert({
-        user_id: appUser.id,
-        game_type: 'cards',
-        difficulty,
-        score,
-        time_seconds: timer,
-        moves,
-        completed: true,
-      });
-
-      if (score > highScores[difficulty]) {
-        setHighScores((prev) => ({ ...prev, [difficulty]: score }));
-        toast({ title: 'New High Score!', description: `You scored ${score} points!` });
-      }
-    } catch (error) {
-      console.error('Error saving score:', error);
+    if (score > highScores[difficulty]) {
+      setHighScores((prev) => ({ ...prev, [difficulty]: score }));
+      toast({ title: 'New High Score!', description: `You scored ${score} points!` });
     }
   };
 

@@ -24,8 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useAuth } from '@/app/providers';
-import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { SprintType, Sprint, Task } from '@/types';
@@ -38,8 +36,37 @@ const DURATIONS = {
   break: [5, 10, 15],
 };
 
+// Mock data for demo
+const MOCK_SPRINTS: Sprint[] = [
+  {
+    id: '1',
+    user_id: 'demo',
+    sprint_type: 'deep_work',
+    duration_minutes: 25,
+    started_at: new Date().toISOString(),
+    ended_at: new Date().toISOString(),
+    completed: true,
+    task_id: null,
+    notes: null,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: '2',
+    user_id: 'demo',
+    sprint_type: 'deep_work',
+    duration_minutes: 15,
+    started_at: new Date(Date.now() - 3600000).toISOString(),
+    ended_at: new Date(Date.now() - 2700000).toISOString(),
+    completed: true,
+    task_id: null,
+    notes: null,
+    created_at: new Date(Date.now() - 3600000).toISOString(),
+  },
+];
+
+const MOCK_TASKS: Task[] = [];
+
 export default function FocusPage() {
-  const { appUser } = useAuth();
   const { toast } = useToast();
   const [sprintType, setSprintType] = useState<SprintType>('deep_work');
   const [focusDuration, setFocusDuration] = useState(25);
@@ -50,72 +77,21 @@ export default function FocusPage() {
   const [ambientMode, setAmbientMode] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [currentSprintId, setCurrentSprintId] = useState<string | null>(null);
-  const [todaysSprints, setTodaysSprints] = useState<Sprint[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [todaysSprints, setTodaysSprints] = useState<Sprint[]>(MOCK_SPRINTS);
+  const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (appUser) {
-      fetchTodaysSprints();
-      fetchTasks();
-    }
-  }, [appUser]);
+    setSessionsCompleted(todaysSprints.filter(s => s.completed).length);
+  }, []);
 
-  const fetchTodaysSprints = async () => {
-    if (!appUser) return;
-
-    const supabase = createClient();
-    const today = new Date().toISOString().split('T')[0];
-
-    const { data } = await supabase
-      .from('sprints')
-      .select('*')
-      .eq('user_id', appUser.id)
-      .gte('started_at', `${today}T00:00:00`)
-      .order('started_at', { ascending: false });
-
-    setTodaysSprints((data || []) as Sprint[]);
-    setSessionsCompleted((data || []).filter((s: any) => s.completed).length);
-  };
-
-  const fetchTasks = async () => {
-    if (!appUser) return;
-
-    const supabase = createClient();
-    const { data } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('user_id', appUser.id)
-      .in('status', ['todo', 'in_progress'])
-      .order('priority', { ascending: false })
-      .limit(10);
-
-    setTasks((data || []) as Task[]);
-  };
-
-  const startTimer = async () => {
-    if (!appUser) return;
-
+  const startTimer = () => {
     if (timerState === 'idle') {
       // Start new sprint
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('sprints')
-        .insert({
-          user_id: appUser.id,
-          sprint_type: sprintType,
-          duration_minutes: focusDuration,
-          task_id: selectedTaskId,
-        })
-        .select()
-        .single();
-
-      if (data) {
-        setCurrentSprintId(data.id);
-      }
-
+      const newSprintId = Date.now().toString();
+      setCurrentSprintId(newSprintId);
       setTimeLeft(focusDuration * 60);
     }
 
@@ -135,20 +111,24 @@ export default function FocusPage() {
     setCurrentSprintId(null);
   };
 
-  const completeSprt = async () => {
-    if (!appUser || !currentSprintId) return;
+  const completeSprt = () => {
+    if (!currentSprintId) return;
 
-    const supabase = createClient();
-    await supabase
-      .from('sprints')
-      .update({
-        ended_at: new Date().toISOString(),
-        completed: true,
-      })
-      .eq('id', currentSprintId);
+    const newSprint: Sprint = {
+      id: currentSprintId,
+      user_id: 'demo',
+      sprint_type: sprintType,
+      duration_minutes: focusDuration,
+      started_at: new Date(Date.now() - focusDuration * 60 * 1000).toISOString(),
+      ended_at: new Date().toISOString(),
+      completed: true,
+      task_id: selectedTaskId,
+      notes: null,
+      created_at: new Date().toISOString(),
+    };
 
+    setTodaysSprints([newSprint, ...todaysSprints]);
     setSessionsCompleted((prev) => prev + 1);
-    fetchTodaysSprints();
 
     if (soundEnabled) {
       // Play completion sound (browser audio API)

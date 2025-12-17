@@ -3,14 +3,10 @@
 import Link from 'next/link';
 import { Gamepad2, Brain, BookOpen, Trophy, Flame } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { useAuth } from '@/app/providers';
 
 export default function GamesPage() {
-  const { appUser } = useAuth();
-
   const games = [
     {
       id: 'memory',
@@ -49,14 +45,10 @@ export default function GamesPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {appUser?.current_streak && appUser.current_streak > 0 && (
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20">
-              <Flame className="h-5 w-5 text-orange-500" />
-              <span className="font-semibold text-orange-500">
-                {appUser.current_streak} day streak
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/20">
+            <Flame className="h-5 w-5 text-orange-500" />
+            <span className="font-semibold text-orange-500">7 day streak</span>
+          </div>
         </div>
       </div>
 

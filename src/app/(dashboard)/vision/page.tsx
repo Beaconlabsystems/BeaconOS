@@ -51,8 +51,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useAuth } from '@/app/providers';
-import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { VisionCard, VisionCategory } from '@/types';
 import { cn } from '@/lib/utils';
@@ -146,12 +144,54 @@ function SortableCard({ card, onEdit, onDelete, onToggleVisibility }: SortableCa
   );
 }
 
+// Mock data for demo
+const MOCK_CARDS: VisionCard[] = [
+  {
+    id: '1',
+    user_id: 'demo',
+    title: 'Dream Home',
+    caption: 'A beautiful house by the beach',
+    image_url: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800',
+    category: 'property',
+    position: 0,
+    is_visible: true,
+    is_default: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '2',
+    user_id: 'demo',
+    title: 'Travel the World',
+    caption: 'Exploring new cultures and places',
+    image_url: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800',
+    category: 'travel',
+    position: 1,
+    is_visible: true,
+    is_default: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '3',
+    user_id: 'demo',
+    title: 'Financial Freedom',
+    caption: 'Building wealth and security',
+    image_url: 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800',
+    category: 'lifestyle',
+    position: 2,
+    is_visible: true,
+    is_default: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 export default function VisionBoardPage() {
-  const { appUser } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
-  const [cards, setCards] = useState<VisionCard[]>([]);
+  const [cards, setCards] = useState<VisionCard[]>(MOCK_CARDS);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<VisionCard | null>(null);
   const [motivationMode, setMotivationMode] = useState(false);
@@ -171,10 +211,10 @@ export default function VisionBoardPage() {
   );
 
   useEffect(() => {
-    if (appUser) {
-      fetchCards();
-    }
-  }, [appUser]);
+    // Simulate loading
+    const timer = setTimeout(() => setLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (searchParams.get('mode') === 'motivation') {
@@ -198,23 +238,8 @@ export default function VisionBoardPage() {
     }
   }, [motivationMode, visibleCards.length]);
 
-  const fetchCards = async () => {
-    if (!appUser) return;
 
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from('vision_cards')
-      .select('*')
-      .eq('user_id', appUser.id)
-      .order('position', { ascending: true });
-
-    if (!error && data) {
-      setCards(data as VisionCard[]);
-    }
-    setLoading(false);
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
@@ -223,65 +248,43 @@ export default function VisionBoardPage() {
 
       const newCards = arrayMove(cards, oldIndex, newIndex);
       setCards(newCards);
-
-      // Update positions in database
-      const supabase = createClient();
-      const updates = newCards.map((card, index) => ({
-        id: card.id,
-        user_id: appUser!.id,
-        position: index,
-      }));
-
-      for (const update of updates) {
-        await supabase
-          .from('vision_cards')
-          .update({ position: update.position })
-          .eq('id', update.id);
-      }
+      toast({ title: 'Card reordered' });
     }
   };
 
-  const handleSaveCard = async () => {
-    if (!appUser || !formData.title || !formData.image_url) return;
+  const handleSaveCard = () => {
+    if (!formData.title || !formData.image_url) return;
 
-    const supabase = createClient();
-
-    try {
-      if (editingCard) {
-        // Update existing card
-        await supabase
-          .from('vision_cards')
-          .update({
-            title: formData.title,
-            caption: formData.caption,
-            image_url: formData.image_url,
-            category: formData.category,
-          })
-          .eq('id', editingCard.id);
-
-        toast({ title: 'Card updated' });
-      } else {
-        // Create new card
-        const newPosition = cards.length;
-        await supabase.from('vision_cards').insert({
-          user_id: appUser.id,
-          title: formData.title,
-          caption: formData.caption,
-          image_url: formData.image_url,
-          category: formData.category,
-          position: newPosition,
-        });
-
-        toast({ title: 'Card added' });
-      }
-
-      setIsDialogOpen(false);
-      setEditingCard(null);
-      setFormData({ title: '', caption: '', image_url: '', category: 'lifestyle' });
-      fetchCards();
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error saving card' });
+    if (editingCard) {
+      // Update existing card
+      setCards(cards.map(c =>
+        c.id === editingCard.id
+          ? { ...c, ...formData }
+          : c
+      ));
+      toast({ title: 'Card updated' });
+    } else {
+      // Create new card
+      const newCard: VisionCard = {
+        id: Date.now().toString(),
+        user_id: 'demo',
+        title: formData.title,
+        caption: formData.caption,
+        image_url: formData.image_url,
+        category: formData.category,
+        position: cards.length,
+        is_visible: true,
+        is_default: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      setCards([...cards, newCard]);
+      toast({ title: 'Card added' });
     }
+
+    setIsDialogOpen(false);
+    setEditingCard(null);
+    setFormData({ title: '', caption: '', image_url: '', category: 'lifestyle' });
   };
 
   const handleEditCard = (card: VisionCard) => {
@@ -295,17 +298,15 @@ export default function VisionBoardPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDeleteCard = async (id: string) => {
-    const supabase = createClient();
-    await supabase.from('vision_cards').delete().eq('id', id);
+  const handleDeleteCard = (id: string) => {
+    setCards(cards.filter(c => c.id !== id));
     toast({ title: 'Card deleted' });
-    fetchCards();
   };
 
-  const handleToggleVisibility = async (id: string, visible: boolean) => {
-    const supabase = createClient();
-    await supabase.from('vision_cards').update({ is_visible: visible }).eq('id', id);
-    fetchCards();
+  const handleToggleVisibility = (id: string, visible: boolean) => {
+    setCards(cards.map(c =>
+      c.id === id ? { ...c, is_visible: visible } : c
+    ));
   };
 
   // Motivation Mode Overlay

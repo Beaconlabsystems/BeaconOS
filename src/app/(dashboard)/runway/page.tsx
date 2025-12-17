@@ -29,18 +29,42 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useAuth } from '@/app/providers';
-import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn, formatCurrency, formatDate, calculateRunwayMonths, getZeroCashDate } from '@/lib/utils';
 import type { Scenario, FinancialEvent, RevenueEvent } from '@/types';
 import { format, addMonths } from 'date-fns';
 
+// Mock data for demo
+const MOCK_SCENARIOS: Scenario[] = [
+  {
+    id: '1',
+    user_id: 'demo',
+    name: 'Conservative Path',
+    description: 'Baseline scenario with current runway',
+    is_baseline: true,
+    current_cash: 50000,
+    monthly_burn: 8000,
+    expected_grants: [
+      {
+        name: 'Innovate UK Grant',
+        amount: 100000,
+        probability: 60,
+        expected_date: format(addMonths(new Date(), 3), 'yyyy-MM-dd'),
+      },
+    ],
+    expected_investments: [],
+    expected_revenue: [],
+    runway_months: 6,
+    zero_cash_date: format(addMonths(new Date(), 6), 'yyyy-MM-dd'),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 export default function RunwayPage() {
-  const { appUser } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [scenarios, setScenarios] = useState<Scenario[]>(MOCK_SCENARIOS);
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingScenario, setEditingScenario] = useState<Scenario | null>(null);
@@ -57,105 +81,82 @@ export default function RunwayPage() {
   });
 
   useEffect(() => {
-    if (appUser) {
-      fetchScenarios();
-    }
-  }, [appUser]);
+    // Simulate loading
+    const timer = setTimeout(() => {
+      setLoading(false);
+      const baseline = scenarios.find((s) => s.is_baseline);
+      setSelectedScenario(baseline || scenarios[0] || null);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
-  const fetchScenarios = async () => {
-    if (!appUser) return;
-
-    setLoading(true);
-    const supabase = createClient();
-
-    const { data, error } = await supabase
-      .from('scenarios')
-      .select('*')
-      .eq('user_id', appUser.id)
-      .order('created_at', { ascending: false });
-
-    const scenarioList = (data || []) as Scenario[];
-    setScenarios(scenarioList);
-
-    // Select baseline or first scenario
-    const baseline = scenarioList.find((s) => s.is_baseline);
-    setSelectedScenario(baseline || scenarioList[0] || null);
-
-    setLoading(false);
-  };
-
-  const handleSaveScenario = async () => {
-    if (!appUser || !formData.name) return;
-
-    const supabase = createClient();
+  const handleSaveScenario = () => {
+    if (!formData.name) return;
 
     // Calculate runway
     const runwayMonths = calculateRunwayMonths(formData.current_cash, formData.monthly_burn);
     const zeroCashDate = getZeroCashDate(formData.current_cash, formData.monthly_burn);
 
-    const scenarioData = {
-      name: formData.name,
-      description: formData.description || null,
-      is_baseline: formData.is_baseline,
-      current_cash: formData.current_cash,
-      monthly_burn: formData.monthly_burn,
-      expected_grants: formData.expected_grants,
-      expected_investments: formData.expected_investments,
-      expected_revenue: formData.expected_revenue,
-      runway_months: runwayMonths === Infinity ? null : runwayMonths,
-      zero_cash_date: zeroCashDate?.toISOString().split('T')[0] || null,
-    };
-
-    try {
-      if (editingScenario) {
-        await supabase
-          .from('scenarios')
-          .update(scenarioData)
-          .eq('id', editingScenario.id);
-        toast({ title: 'Scenario updated' });
-      } else {
-        await supabase.from('scenarios').insert({
-          ...scenarioData,
-          user_id: appUser.id,
-        });
-        toast({ title: 'Scenario created' });
-      }
-
-      setIsDialogOpen(false);
-      setEditingScenario(null);
-      resetForm();
-      fetchScenarios();
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error saving scenario' });
+    if (editingScenario) {
+      setScenarios(scenarios.map(s =>
+        s.id === editingScenario.id
+          ? {
+              ...s,
+              name: formData.name,
+              description: formData.description || null,
+              is_baseline: formData.is_baseline,
+              current_cash: formData.current_cash,
+              monthly_burn: formData.monthly_burn,
+              expected_grants: formData.expected_grants,
+              expected_investments: formData.expected_investments,
+              expected_revenue: formData.expected_revenue,
+              runway_months: runwayMonths === Infinity ? null : runwayMonths,
+              zero_cash_date: zeroCashDate?.toISOString().split('T')[0] || null,
+            }
+          : s
+      ));
+      toast({ title: 'Scenario updated' });
+    } else {
+      const newScenario: Scenario = {
+        id: Date.now().toString(),
+        user_id: 'demo',
+        name: formData.name,
+        description: formData.description || null,
+        is_baseline: formData.is_baseline,
+        current_cash: formData.current_cash,
+        monthly_burn: formData.monthly_burn,
+        expected_grants: formData.expected_grants,
+        expected_investments: formData.expected_investments,
+        expected_revenue: formData.expected_revenue,
+        runway_months: runwayMonths === Infinity ? null : runwayMonths,
+        zero_cash_date: zeroCashDate?.toISOString().split('T')[0] || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      setScenarios([...scenarios, newScenario]);
+      toast({ title: 'Scenario created' });
     }
+
+    setIsDialogOpen(false);
+    setEditingScenario(null);
+    resetForm();
   };
 
-  const handleDeleteScenario = async (id: string) => {
-    const supabase = createClient();
-    await supabase.from('scenarios').delete().eq('id', id);
+  const handleDeleteScenario = (id: string) => {
+    setScenarios(scenarios.filter(s => s.id !== id));
     toast({ title: 'Scenario deleted' });
-    fetchScenarios();
   };
 
-  const handleDuplicateScenario = async (scenario: Scenario) => {
-    if (!appUser) return;
-
-    const supabase = createClient();
-    await supabase.from('scenarios').insert({
-      user_id: appUser.id,
+  const handleDuplicateScenario = (scenario: Scenario) => {
+    const newScenario: Scenario = {
+      ...scenario,
+      id: Date.now().toString(),
       name: `${scenario.name} (Copy)`,
-      description: scenario.description,
       is_baseline: false,
-      current_cash: scenario.current_cash,
-      monthly_burn: scenario.monthly_burn,
-      expected_grants: scenario.expected_grants,
-      expected_investments: scenario.expected_investments,
-      expected_revenue: scenario.expected_revenue,
-      runway_months: scenario.runway_months,
-      zero_cash_date: scenario.zero_cash_date,
-    });
+      created_at: new Date().toISOString(),
+    };
+    setScenarios([...scenarios, newScenario]);
     toast({ title: 'Scenario duplicated' });
-    fetchScenarios();
   };
 
   const resetForm = () => {

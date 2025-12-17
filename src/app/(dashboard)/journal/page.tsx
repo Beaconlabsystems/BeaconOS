@@ -36,13 +36,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useAuth } from '@/app/providers';
-import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { JournalEntry, Decision, Mood } from '@/types';
 import { JOURNAL_PROMPTS } from '@/types';
 import { formatDate, cn } from '@/lib/utils';
-import { format, addDays, subDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
+import { format, addDays, addMonths, subDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 
 const MOOD_COLORS: Record<Mood, string> = {
   great: 'bg-green-500',
@@ -60,12 +58,48 @@ const MOOD_LABELS: Record<Mood, string> = {
   struggling: 'Struggling',
 };
 
+// Mock data for demo
+const MOCK_ENTRIES: JournalEntry[] = [
+  {
+    id: '1',
+    user_id: 'demo',
+    entry_date: format(new Date(), 'yyyy-MM-dd'),
+    one_move: 'Complete grant application',
+    avoiding: 'Calling that potential investor',
+    sixty_minutes: 'Deep work on product roadmap',
+    winning_evidence: 'Closed first pilot customer',
+    content: 'Great progress today. Team morale is high.',
+    mood: 'great',
+    energy_level: 4,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
+const MOCK_DECISIONS: Decision[] = [
+  {
+    id: '1',
+    user_id: 'demo',
+    decision_date: format(subDays(new Date(), 3), 'yyyy-MM-dd'),
+    title: 'Pivot to B2B model',
+    decision: 'Decided to focus on B2B SaaS instead of consumer',
+    rationale: 'Better unit economics and clearer path to revenue',
+    expected_outcome: 'Higher conversion rates and better retention',
+    actual_outcome: null,
+    was_correct: null,
+    lessons_learned: null,
+    review_date: format(addMonths(new Date(), 3), 'yyyy-MM-dd'),
+    tags: [],
+    created_at: subDays(new Date(), 3).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 export default function JournalPage() {
-  const { appUser } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [entries, setEntries] = useState<JournalEntry[]>([]);
-  const [decisions, setDecisions] = useState<Decision[]>([]);
+  const [entries, setEntries] = useState<JournalEntry[]>(MOCK_ENTRIES);
+  const [decisions, setDecisions] = useState<Decision[]>(MOCK_DECISIONS);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [isEntryDialogOpen, setIsEntryDialogOpen] = useState(false);
@@ -91,113 +125,88 @@ export default function JournalPage() {
   });
 
   useEffect(() => {
-    if (appUser) {
-      fetchData();
-    }
-  }, [appUser]);
+    // Simulate loading
+    const timer = setTimeout(() => setLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
-  const fetchData = async () => {
-    if (!appUser) return;
-
-    setLoading(true);
-    const supabase = createClient();
-
-    // Fetch journal entries
-    const { data: entriesData } = await supabase
-      .from('journal_entries')
-      .select('*')
-      .eq('user_id', appUser.id)
-      .order('entry_date', { ascending: false });
-
-    // Fetch decisions
-    const { data: decisionsData } = await supabase
-      .from('decisions')
-      .select('*')
-      .eq('user_id', appUser.id)
-      .order('decision_date', { ascending: false });
-
-    setEntries((entriesData || []) as JournalEntry[]);
-    setDecisions((decisionsData || []) as Decision[]);
-    setLoading(false);
-  };
 
   const getEntryForDate = (date: Date): JournalEntry | undefined => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return entries.find((e) => e.entry_date === dateStr);
   };
 
-  const handleSaveEntry = async () => {
-    if (!appUser) return;
-
+  const handleSaveEntry = () => {
     setSaving(true);
-    const supabase = createClient();
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     const existingEntry = getEntryForDate(selectedDate);
 
-    try {
-      const entryData = {
-        user_id: appUser.id,
+    if (existingEntry) {
+      setEntries(entries.map(e =>
+        e.id === existingEntry.id
+          ? {
+              ...e,
+              ...entryForm,
+              entry_date: dateStr,
+              mood: entryForm.mood as Mood,
+            }
+          : e
+      ));
+    } else {
+      const newEntry: JournalEntry = {
+        id: Date.now().toString(),
+        user_id: 'demo',
         entry_date: dateStr,
         one_move: entryForm.one_move || null,
         avoiding: entryForm.avoiding || null,
         sixty_minutes: entryForm.sixty_minutes || null,
         winning_evidence: entryForm.winning_evidence || null,
         content: entryForm.content || null,
-        mood: entryForm.mood || null,
+        mood: entryForm.mood as Mood || null,
         energy_level: entryForm.energy_level,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
-
-      if (existingEntry) {
-        await supabase
-          .from('journal_entries')
-          .update(entryData)
-          .eq('id', existingEntry.id);
-      } else {
-        await supabase.from('journal_entries').insert(entryData);
-      }
-
-      toast({ title: 'Entry saved' });
-      setIsEntryDialogOpen(false);
-      fetchData();
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error saving entry' });
-    } finally {
-      setSaving(false);
+      setEntries([newEntry, ...entries]);
     }
+
+    toast({ title: 'Entry saved' });
+    setIsEntryDialogOpen(false);
+    setSaving(false);
   };
 
-  const handleSaveDecision = async () => {
-    if (!appUser || !decisionForm.title || !decisionForm.decision) return;
+  const handleSaveDecision = () => {
+    if (!decisionForm.title || !decisionForm.decision) return;
 
     setSaving(true);
-    const supabase = createClient();
+    const newDecision: Decision = {
+      id: Date.now().toString(),
+      user_id: 'demo',
+      decision_date: format(new Date(), 'yyyy-MM-dd'),
+      title: decisionForm.title,
+      decision: decisionForm.decision,
+      rationale: decisionForm.rationale || null,
+      expected_outcome: decisionForm.expected_outcome || null,
+      review_date: decisionForm.review_date || null,
+      actual_outcome: null,
+      was_correct: null,
+      lessons_learned: null,
+      tags: [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
 
-    try {
-      await supabase.from('decisions').insert({
-        user_id: appUser.id,
-        decision_date: format(new Date(), 'yyyy-MM-dd'),
-        title: decisionForm.title,
-        decision: decisionForm.decision,
-        rationale: decisionForm.rationale || null,
-        expected_outcome: decisionForm.expected_outcome || null,
-        review_date: decisionForm.review_date || null,
-      });
-
-      toast({ title: 'Decision logged' });
-      setIsDecisionDialogOpen(false);
-      setDecisionForm({
-        title: '',
-        decision: '',
-        rationale: '',
-        expected_outcome: '',
-        review_date: '',
-      });
-      fetchData();
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error saving decision' });
-    } finally {
-      setSaving(false);
-    }
+    setDecisions([newDecision, ...decisions]);
+    toast({ title: 'Decision logged' });
+    setIsDecisionDialogOpen(false);
+    setDecisionForm({
+      title: '',
+      decision: '',
+      rationale: '',
+      expected_outcome: '',
+      review_date: '',
+    });
+    setSaving(false);
   };
 
   const openEntryForDate = (date: Date) => {

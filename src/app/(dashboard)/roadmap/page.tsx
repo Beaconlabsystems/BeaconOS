@@ -40,18 +40,55 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { useAuth } from '@/app/providers';
-import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Milestone, Swimlane, MilestoneStatus } from '@/types';
 import { SWIMLANE_LABELS, SWIMLANE_COLORS } from '@/types';
 import { formatDate, cn } from '@/lib/utils';
 
+// Mock data for demo
+const MOCK_MILESTONES: Milestone[] = [
+  {
+    id: '1',
+    user_id: 'demo',
+    title: 'Innovate UK Application',
+    description: 'Submit grant application for product development',
+    swimlane: 'funding',
+    status: 'in_progress',
+    target_date: '2025-03-15',
+    completed_date: null,
+    definition_of_done: ['Application submitted', 'All documents uploaded'],
+    prerequisites: ['Finalise budget', 'Get letter of support'],
+    risks: ['Tight deadline', 'Complex application process'],
+    color: '#0ea5e9',
+    position: 0,
+    is_default: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: '2',
+    user_id: 'demo',
+    title: 'MVP Launch',
+    description: 'Release minimum viable product to first customers',
+    swimlane: 'product',
+    status: 'pending',
+    target_date: '2025-06-01',
+    completed_date: null,
+    definition_of_done: ['Product deployed', '10 beta users onboarded'],
+    prerequisites: ['Complete core features', 'Set up analytics'],
+    risks: ['Technical delays', 'User feedback may require pivots'],
+    color: '#8b5cf6',
+    position: 0,
+    is_default: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 export default function RoadmapPage() {
-  const { appUser } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>(MOCK_MILESTONES);
   const [expandedSwimlanes, setExpandedSwimlanes] = useState<Set<string>>(new Set(Object.keys(SWIMLANE_LABELS)));
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
@@ -69,26 +106,11 @@ export default function RoadmapPage() {
   });
 
   useEffect(() => {
-    if (appUser) {
-      fetchMilestones();
-    }
-  }, [appUser]);
+    // Simulate loading
+    const timer = setTimeout(() => setLoading(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
-  const fetchMilestones = async () => {
-    if (!appUser) return;
-
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from('milestones')
-      .select('*')
-      .eq('user_id', appUser.id)
-      .order('position', { ascending: true });
-
-    if (!error && data) {
-      setMilestones(data as Milestone[]);
-    }
-    setLoading(false);
-  };
 
   const toggleSwimlane = (swimlane: string) => {
     const newExpanded = new Set(expandedSwimlanes);
@@ -111,47 +133,49 @@ export default function RoadmapPage() {
     return Math.round((completed / swimlaneMilestones.length) * 100);
   };
 
-  const handleSaveMilestone = async () => {
-    if (!appUser || !formData.title) return;
+  const handleSaveMilestone = () => {
+    if (!formData.title) return;
 
-    const supabase = createClient();
-
-    const milestoneData = {
-      title: formData.title,
-      description: formData.description || null,
-      swimlane: formData.swimlane,
-      status: formData.status,
-      target_date: formData.target_date || null,
-      definition_of_done: formData.definition_of_done.filter((d) => d.trim()),
-      prerequisites: formData.prerequisites.filter((p) => p.trim()),
-      risks: formData.risks.filter((r) => r.trim()),
-      color: formData.color,
-    };
-
-    try {
-      if (editingMilestone) {
-        await supabase
-          .from('milestones')
-          .update(milestoneData)
-          .eq('id', editingMilestone.id);
-        toast({ title: 'Milestone updated' });
-      } else {
-        const position = milestones.filter((m) => m.swimlane === formData.swimlane).length;
-        await supabase.from('milestones').insert({
-          ...milestoneData,
-          user_id: appUser.id,
-          position,
-        });
-        toast({ title: 'Milestone created' });
-      }
-
-      setIsDialogOpen(false);
-      setEditingMilestone(null);
-      resetForm();
-      fetchMilestones();
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error saving milestone' });
+    if (editingMilestone) {
+      setMilestones(milestones.map(m =>
+        m.id === editingMilestone.id
+          ? {
+              ...m,
+              ...formData,
+              definition_of_done: formData.definition_of_done.filter((d) => d.trim()),
+              prerequisites: formData.prerequisites.filter((p) => p.trim()),
+              risks: formData.risks.filter((r) => r.trim()),
+            }
+          : m
+      ));
+      toast({ title: 'Milestone updated' });
+    } else {
+      const position = milestones.filter((m) => m.swimlane === formData.swimlane).length;
+      const newMilestone: Milestone = {
+        id: Date.now().toString(),
+        user_id: 'demo',
+        title: formData.title,
+        description: formData.description || null,
+        swimlane: formData.swimlane,
+        status: formData.status,
+        target_date: formData.target_date || null,
+        definition_of_done: formData.definition_of_done.filter((d) => d.trim()),
+        prerequisites: formData.prerequisites.filter((p) => p.trim()),
+        risks: formData.risks.filter((r) => r.trim()),
+        color: formData.color,
+        position,
+        completed_date: null,
+        is_default: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      setMilestones([...milestones, newMilestone]);
+      toast({ title: 'Milestone created' });
     }
+
+    setIsDialogOpen(false);
+    setEditingMilestone(null);
+    resetForm();
   };
 
   const handleEditMilestone = (milestone: Milestone) => {
@@ -170,22 +194,23 @@ export default function RoadmapPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDeleteMilestone = async (id: string) => {
-    const supabase = createClient();
-    await supabase.from('milestones').delete().eq('id', id);
+  const handleDeleteMilestone = (id: string) => {
+    setMilestones(milestones.filter(m => m.id !== id));
     toast({ title: 'Milestone deleted' });
     setSelectedMilestone(null);
-    fetchMilestones();
   };
 
-  const handleUpdateStatus = async (id: string, status: MilestoneStatus) => {
-    const supabase = createClient();
-    const update: any = { status };
-    if (status === 'completed') {
-      update.completed_date = new Date().toISOString().split('T')[0];
-    }
-    await supabase.from('milestones').update(update).eq('id', id);
-    fetchMilestones();
+  const handleUpdateStatus = (id: string, status: MilestoneStatus) => {
+    setMilestones(milestones.map(m => {
+      if (m.id === id) {
+        const update: any = { ...m, status };
+        if (status === 'completed') {
+          update.completed_date = new Date().toISOString().split('T')[0];
+        }
+        return update;
+      }
+      return m;
+    }));
   };
 
   const resetForm = () => {

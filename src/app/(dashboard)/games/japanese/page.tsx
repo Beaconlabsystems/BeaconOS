@@ -8,14 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth } from '@/app/providers';
-import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { Flashcard, FlashcardCategory } from '@/types';
 import { FLASHCARD_CATEGORY_LABELS } from '@/types';
 import { calculateNextReview, getCardsDueToday, getLearningStats, SIMPLE_RATINGS, type SimpleRating } from '@/lib/srs-algorithm';
 import { DEFAULT_FLASHCARDS } from '@/lib/seed-data';
+import { format, addDays } from 'date-fns';
 
 // Cute mascot component
 function Mascot({ message, mood }: { message: string; mood: 'happy' | 'encouraging' | 'celebrating' }) {
@@ -36,11 +35,30 @@ function Mascot({ message, mood }: { message: string; mood: 'happy' | 'encouragi
   );
 }
 
+// Mock flashcards initialized from default set
+const initializeMockFlashcards = (): Flashcard[] => {
+  const today = new Date().toISOString().split('T')[0];
+  return DEFAULT_FLASHCARDS.map((card, index) => ({
+    ...card,
+    id: `mock-${index}`,
+    user_id: 'demo',
+    box_number: Math.floor(Math.random() * 3) + 1, // Random box 1-3
+    ease_factor: 2.5,
+    interval_days: 1,
+    repetitions: 0,
+    next_review_date: Math.random() > 0.5 ? today : format(addDays(new Date(), 1), 'yyyy-MM-dd'),
+    last_reviewed_at: null,
+    times_correct: Math.floor(Math.random() * 5),
+    times_incorrect: Math.floor(Math.random() * 2),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }));
+};
+
 export default function JapaneseLearningPage() {
-  const { appUser } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
+  const [flashcards, setFlashcards] = useState<Flashcard[]>(initializeMockFlashcards());
   const [dueCards, setDueCards] = useState<Flashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -49,56 +67,13 @@ export default function JapaneseLearningPage() {
   const [selectedCategory, setSelectedCategory] = useState<FlashcardCategory | 'all'>('all');
 
   useEffect(() => {
-    if (appUser) {
-      fetchFlashcards();
-    }
-  }, [appUser]);
-
-  const fetchFlashcards = async () => {
-    if (!appUser) return;
-
-    setLoading(true);
-    const supabase = createClient();
-
-    // First check if user has flashcards
-    let { data, error } = await supabase
-      .from('flashcards')
-      .select('*')
-      .eq('user_id', appUser.id)
-      .order('next_review_date', { ascending: true });
-
-    // If no cards, seed default cards
-    if (!error && (!data || data.length === 0)) {
-      const today = new Date().toISOString().split('T')[0];
-      const defaultCards = DEFAULT_FLASHCARDS.map((card) => ({
-        ...card,
-        user_id: appUser.id,
-        box_number: 1,
-        ease_factor: 2.5,
-        interval_days: 1,
-        repetitions: 0,
-        next_review_date: today,
-        times_correct: 0,
-        times_incorrect: 0,
-      }));
-
-      await supabase.from('flashcards').insert(defaultCards);
-
-      // Fetch again
-      const result = await supabase
-        .from('flashcards')
-        .select('*')
-        .eq('user_id', appUser.id)
-        .order('next_review_date', { ascending: true });
-
-      data = result.data;
-    }
-
-    const cards = (data || []) as Flashcard[];
-    setFlashcards(cards);
-    setDueCards(getCardsDueToday(cards));
-    setLoading(false);
-  };
+    // Simulate loading
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setDueCards(getCardsDueToday(flashcards));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const startSession = (category?: FlashcardCategory) => {
     let cardsToReview = getCardsDueToday(flashcards);
@@ -124,9 +99,9 @@ export default function JapaneseLearningPage() {
     setSelectedCategory(category || 'all');
   };
 
-  const handleAnswer = async (rating: SimpleRating) => {
+  const handleAnswer = (rating: SimpleRating) => {
     const currentCard = dueCards[currentIndex];
-    if (!currentCard || !appUser) return;
+    if (!currentCard) return;
 
     const quality = SIMPLE_RATINGS[rating];
     const isCorrect = quality >= 3;
@@ -138,29 +113,22 @@ export default function JapaneseLearningPage() {
       incorrect: prev.incorrect + (isCorrect ? 0 : 1),
     }));
 
-    // Update card in database
-    const supabase = createClient();
-    await supabase
-      .from('flashcards')
-      .update({
-        box_number: result.newBoxNumber,
-        ease_factor: result.newEaseFactor,
-        interval_days: result.newIntervalDays,
-        repetitions: result.newRepetitions,
-        next_review_date: result.nextReviewDate.toISOString().split('T')[0],
-        last_reviewed_at: new Date().toISOString(),
-        times_correct: currentCard.times_correct + (isCorrect ? 1 : 0),
-        times_incorrect: currentCard.times_incorrect + (isCorrect ? 0 : 1),
-      })
-      .eq('id', currentCard.id);
-
-    // Save review record
-    await supabase.from('reviews').insert({
-      user_id: appUser.id,
-      flashcard_id: currentCard.id,
-      quality,
-      was_correct: isCorrect,
-    });
+    // Update card in state
+    setFlashcards(flashcards.map(card =>
+      card.id === currentCard.id
+        ? {
+            ...card,
+            box_number: result.newBoxNumber,
+            ease_factor: result.newEaseFactor,
+            interval_days: result.newIntervalDays,
+            repetitions: result.newRepetitions,
+            next_review_date: result.nextReviewDate.toISOString().split('T')[0],
+            last_reviewed_at: new Date().toISOString(),
+            times_correct: currentCard.times_correct + (isCorrect ? 1 : 0),
+            times_incorrect: currentCard.times_incorrect + (isCorrect ? 0 : 1),
+          }
+        : card
+    ));
 
     // Move to next card
     if (currentIndex < dueCards.length - 1) {
@@ -168,7 +136,6 @@ export default function JapaneseLearningPage() {
       setIsFlipped(false);
     } else {
       setSessionComplete(true);
-      fetchFlashcards(); // Refresh data
     }
   };
 

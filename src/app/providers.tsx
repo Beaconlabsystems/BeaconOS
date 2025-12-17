@@ -1,93 +1,8 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
-import type { User as AppUser } from '@/types';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { CommandPalette } from '@/components/command-palette';
-
-// Auth Context
-interface AuthContextType {
-  user: User | null;
-  appUser: AppUser | null;
-  loading: boolean;
-  signOut: () => Promise<void>;
-  refreshUser: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  appUser: null,
-  loading: true,
-  signOut: async () => {},
-  refreshUser: async () => {},
-});
-
-export const useAuth = () => useContext(AuthContext);
-
-function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [appUser, setAppUser] = useState<AppUser | null>(null);
-  const [loading, setLoading] = useState(true);
-  const supabase = createClient();
-
-  const fetchAppUser = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (!error && data) {
-      setAppUser(data as AppUser);
-    }
-  };
-
-  const refreshUser = async () => {
-    if (user?.id) {
-      await fetchAppUser(user.id);
-    }
-  };
-
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchAppUser(session.user.id);
-      }
-      setLoading(false);
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchAppUser(session.user.id);
-      } else {
-        setAppUser(null);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setAppUser(null);
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, appUser, loading, signOut, refreshUser }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
 
 // Command Palette Context
 interface CommandPaletteContextType {
@@ -133,12 +48,10 @@ function CommandPaletteProvider({ children }: { children: React.ReactNode }) {
 // Combined Providers
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
-      <TooltipProvider>
-        <CommandPaletteProvider>
-          {children}
-        </CommandPaletteProvider>
-      </TooltipProvider>
-    </AuthProvider>
+    <TooltipProvider>
+      <CommandPaletteProvider>
+        {children}
+      </CommandPaletteProvider>
+    </TooltipProvider>
   );
 }

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import {
   DndContext,
@@ -189,7 +188,6 @@ const MOCK_CARDS: VisionCard[] = [
 
 export default function VisionBoardPage() {
   const { toast } = useToast();
-  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState<VisionCard[]>(MOCK_CARDS);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -215,15 +213,6 @@ export default function VisionBoardPage() {
     const timer = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(timer);
   }, []);
-
-  useEffect(() => {
-    if (searchParams.get('mode') === 'motivation') {
-      setMotivationMode(true);
-      // Auto-close after 10 seconds
-      const timer = setTimeout(() => setMotivationMode(false), 10000);
-      return () => clearTimeout(timer);
-    }
-  }, [searchParams]);
 
   // Compute visible cards for motivation mode
   const visibleCards = cards.filter((c) => c.is_visible);

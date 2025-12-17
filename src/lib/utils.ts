@@ -181,13 +181,16 @@ export function groupBy<T, K extends keyof T>(
  */
 export function sortBy<T>(
   array: T[],
-  ...keys: (keyof T | ((item: T) => unknown))[]
+  ...keys: (keyof T | ((item: T) => string | number | boolean | null | undefined))[]
 ): T[] {
   return [...array].sort((a, b) => {
     for (const key of keys) {
       const aValue = typeof key === 'function' ? key(a) : a[key];
       const bValue = typeof key === 'function' ? key(b) : b[key];
 
+      if (aValue == null && bValue == null) continue;
+      if (aValue == null) return 1;
+      if (bValue == null) return -1;
       if (aValue < bValue) return -1;
       if (aValue > bValue) return 1;
     }

@@ -155,6 +155,7 @@ export default function VisionBoardPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<VisionCard | null>(null);
   const [motivationMode, setMotivationMode] = useState(false);
+  const [motivationIndex, setMotivationIndex] = useState(0);
   const [formData, setFormData] = useState({
     title: '',
     caption: '',
@@ -183,6 +184,19 @@ export default function VisionBoardPage() {
       return () => clearTimeout(timer);
     }
   }, [searchParams]);
+
+  // Compute visible cards for motivation mode
+  const visibleCards = cards.filter((c) => c.is_visible);
+
+  // Carousel effect for motivation mode
+  useEffect(() => {
+    if (motivationMode && visibleCards.length > 1) {
+      const interval = setInterval(() => {
+        setMotivationIndex((prev) => (prev + 1) % visibleCards.length);
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [motivationMode, visibleCards.length]);
 
   const fetchCards = async () => {
     if (!appUser) return;
@@ -296,18 +310,7 @@ export default function VisionBoardPage() {
 
   // Motivation Mode Overlay
   if (motivationMode) {
-    const visibleCards = cards.filter((c) => c.is_visible);
-    const [currentIndex, setCurrentIndex] = useState(0);
-
-    useEffect(() => {
-      if (visibleCards.length > 1) {
-        const interval = setInterval(() => {
-          setCurrentIndex((prev) => (prev + 1) % visibleCards.length);
-        }, 2000);
-        return () => clearInterval(interval);
-      }
-    }, [visibleCards.length]);
-
+    const safeIndex = visibleCards.length > 0 ? motivationIndex % visibleCards.length : 0;
     return (
       <div
         className="fixed inset-0 z-50 bg-black flex items-center justify-center cursor-pointer"
@@ -316,8 +319,8 @@ export default function VisionBoardPage() {
         {visibleCards.length > 0 && (
           <div className="relative w-full h-full animate-fade-in">
             <Image
-              src={visibleCards[currentIndex].image_url}
-              alt={visibleCards[currentIndex].title}
+              src={visibleCards[safeIndex].image_url}
+              alt={visibleCards[safeIndex].title}
               fill
               className="object-cover"
               priority
@@ -325,11 +328,11 @@ export default function VisionBoardPage() {
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
             <div className="absolute bottom-20 left-0 right-0 text-center animate-slide-in-bottom">
               <h2 className="text-5xl font-bold text-white mb-4">
-                {visibleCards[currentIndex].title}
+                {visibleCards[safeIndex].title}
               </h2>
-              {visibleCards[currentIndex].caption && (
+              {visibleCards[safeIndex].caption && (
                 <p className="text-2xl text-white/80">
-                  {visibleCards[currentIndex].caption}
+                  {visibleCards[safeIndex].caption}
                 </p>
               )}
             </div>

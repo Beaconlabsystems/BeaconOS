@@ -47,15 +47,6 @@ import type { Milestone, Swimlane, MilestoneStatus } from '@/types';
 import { SWIMLANE_LABELS, SWIMLANE_COLORS } from '@/types';
 import { formatDate, cn } from '@/lib/utils';
 
-// Simple Collapsible components since we're not importing them
-function CollapsibleRoot({ children, open, onOpenChange, ...props }: any) {
-  return (
-    <div data-state={open ? 'open' : 'closed'} {...props}>
-      {children}
-    </div>
-  );
-}
-
 export default function RoadmapPage() {
   const { appUser } = useAuth();
   const { toast } = useToast();

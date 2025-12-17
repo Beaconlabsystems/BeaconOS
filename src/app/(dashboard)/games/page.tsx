@@ -94,11 +94,16 @@ export default function GamesPage() {
                     <>
                       <div className="flex items-center gap-2">
                         <BookOpen className="h-4 w-4 text-green-500" />
-                        <span className="text-sm">{game.stats.cardsLearned} cards learned</span>
+                        <span className="text-sm">{('cardsLearned' in game.stats ? game.stats.cardsLearned : 0)} cards learned</span>
                       </div>
-                      <Badge variant={game.stats.dueToday > 0 ? 'default' : 'secondary'}>
-                        {game.stats.dueToday} due today
-                      </Badge>
+                      {(() => {
+                        const dueToday = 'dueToday' in game.stats ? game.stats.dueToday : 0;
+                        return (
+                          <Badge variant={dueToday && dueToday > 0 ? 'default' : 'secondary'}>
+                            {dueToday} due today
+                          </Badge>
+                        );
+                      })()}
                     </>
                   )}
                 </div>

@@ -1,0 +1,302 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 199 89% 48%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 199 89% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/20 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/40;
+}
+
+/* Animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-from-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-from-bottom {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(14, 165, 233, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(14, 165, 233, 0.8);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-from-right 0.3s ease-out;
+}
+
+.animate-slide-in-bottom {
+  animation: slide-in-from-bottom 0.4s ease-out;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Glass effect */
+.glass {
+  @apply backdrop-blur-xl bg-white/10 border border-white/20;
+}
+
+.dark .glass {
+  @apply bg-black/20 border-white/10;
+}
+
+/* Gradient text */
+.gradient-text {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-beacon-400 to-beacon-600;
+}
+
+/* Card hover effects */
+.card-hover {
+  @apply transition-all duration-300 hover:shadow-xl hover:scale-[1.02];
+}
+
+/* Command palette styles */
+[cmdk-root] {
+  @apply w-full;
+}
+
+[cmdk-input] {
+  @apply w-full px-4 py-3 bg-transparent border-b border-border outline-none text-foreground placeholder:text-muted-foreground;
+}
+
+[cmdk-item] {
+  @apply px-4 py-3 cursor-pointer flex items-center gap-3 text-sm;
+}
+
+[cmdk-item][data-selected='true'] {
+  @apply bg-accent text-accent-foreground;
+}
+
+[cmdk-group-heading] {
+  @apply px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider;
+}
+
+[cmdk-separator] {
+  @apply h-px bg-border my-2;
+}
+
+[cmdk-empty] {
+  @apply py-6 text-center text-sm text-muted-foreground;
+}
+
+/* Focus ring */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background;
+}
+
+/* Premium button styles */
+.btn-premium {
+  @apply relative overflow-hidden;
+}
+
+.btn-premium::before {
+  content: '';
+  @apply absolute inset-0 bg-gradient-to-r from-beacon-400/20 to-beacon-600/20 opacity-0 transition-opacity duration-300;
+}
+
+.btn-premium:hover::before {
+  @apply opacity-100;
+}
+
+/* Vision board card */
+.vision-card {
+  @apply relative overflow-hidden rounded-xl transition-all duration-300;
+}
+
+.vision-card::after {
+  content: '';
+  @apply absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-300;
+}
+
+.vision-card:hover::after {
+  @apply opacity-100;
+}
+
+/* Streak fire animation */
+@keyframes fire {
+  0%, 100% {
+    transform: scaleY(1) translateY(0);
+  }
+  50% {
+    transform: scaleY(1.1) translateY(-2px);
+  }
+}
+
+.fire-icon {
+  animation: fire 0.5s ease-in-out infinite;
+}
+
+/* Loading skeleton */
+.skeleton {
+  @apply animate-pulse bg-muted rounded;
+}
+
+/* Motivation mode overlay */
+.motivation-overlay {
+  @apply fixed inset-0 z-50 bg-black flex items-center justify-center;
+}
+
+/* Japanese mascot bounce */
+@keyframes mascot-bounce {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-10px) rotate(-5deg);
+  }
+  75% {
+    transform: translateY(-5px) rotate(5deg);
+  }
+}
+
+.mascot-bounce {
+  animation: mascot-bounce 2s ease-in-out infinite;
+}
+
+/* Responsive typography */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

@@ -15,6 +15,10 @@ import {
   Quote,
   Library,
   Scale,
+  Target,
+  Users,
+  Map,
+  Timer,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -30,6 +34,10 @@ import {
 
 const navigation = [
   { name: 'Command Centre', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Daily Priorities', href: '/priorities', icon: Target },
+  { name: 'Focus Timer', href: '/focus', icon: Timer },
+  { name: 'Roadmap', href: '/roadmap', icon: Map },
+  { name: 'Rolodex', href: '/contacts', icon: Users },
   { name: 'Journal', href: '/journal', icon: BookOpen },
   { name: 'Vision Board', href: '/vision', icon: Image },
   { name: 'Decisions', href: '/decisions', icon: Scale },

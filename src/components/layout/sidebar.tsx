@@ -5,17 +5,16 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Image,
-  Map,
   BookOpen,
   Gamepad2,
-  Timer,
-  Calculator,
-  Users,
   Settings,
   ChevronLeft,
   ChevronRight,
   Command,
-  Sparkles,
+  FileText,
+  Quote,
+  Library,
+  Scale,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -30,14 +29,13 @@ import {
 } from '@/components/ui/tooltip';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Vision Board', href: '/vision', icon: Image },
-  { name: 'Roadmap', href: '/roadmap', icon: Map },
+  { name: 'Command Centre', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Journal', href: '/journal', icon: BookOpen },
-  { name: 'Games', href: '/games', icon: Gamepad2 },
-  { name: 'Focus', href: '/focus', icon: Timer },
-  { name: 'Runway', href: '/runway', icon: Calculator },
-  { name: 'CRM', href: '/crm', icon: Users },
+  { name: 'Vision Board', href: '/vision', icon: Image },
+  { name: 'Decisions', href: '/decisions', icon: Scale },
+  { name: 'Daily Quote', href: '/quote', icon: Quote },
+  { name: 'Reading Vault', href: '/reading', icon: Library },
+  { name: 'Polymath Arcade', href: '/arcade', icon: Gamepad2 },
 ];
 
 export function Sidebar() {
@@ -57,15 +55,15 @@ export function Sidebar() {
         <div className="flex h-16 items-center justify-between px-4 border-b border-border">
           {!collapsed && (
             <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-beacon-gradient">
-                <Sparkles className="h-5 w-5 text-white" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <FileText className="h-4 w-4" />
               </div>
-              <span className="font-bold text-lg gradient-text">Beacon OS</span>
+              <span className="font-semibold text-lg">Beacon OS</span>
             </Link>
           )}
           {collapsed && (
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-beacon-gradient mx-auto">
-              <Sparkles className="h-5 w-5 text-white" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground mx-auto">
+              <FileText className="h-4 w-4" />
             </div>
           )}
         </div>
@@ -154,7 +152,7 @@ export function Sidebar() {
             )}
           >
             <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+              <AvatarFallback className="bg-muted text-muted-foreground text-xs">
                 TM
               </AvatarFallback>
             </Avatar>

@@ -6,23 +6,16 @@ import { Command } from 'cmdk';
 import {
   LayoutDashboard,
   Image,
-  Map,
   BookOpen,
   Gamepad2,
-  Timer,
-  Calculator,
-  Users,
   Plus,
   Search,
   Settings,
-  LogOut,
-  Sparkles,
-  Sun,
-  Moon,
-  Flame,
+  Scale,
+  Quote,
+  Library,
 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -51,107 +44,75 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     // Navigation
     {
       id: 'dashboard',
-      label: 'Go to Dashboard',
+      label: 'Command Centre',
       icon: <LayoutDashboard className="h-4 w-4" />,
       shortcut: 'G D',
       action: () => navigate('/dashboard'),
       category: 'navigation',
     },
     {
-      id: 'vision',
-      label: 'Go to Vision Board',
-      icon: <Image className="h-4 w-4" />,
-      shortcut: 'G V',
-      action: () => navigate('/vision'),
-      category: 'navigation',
-    },
-    {
-      id: 'roadmap',
-      label: 'Go to Roadmap',
-      icon: <Map className="h-4 w-4" />,
-      shortcut: 'G R',
-      action: () => navigate('/roadmap'),
-      category: 'navigation',
-    },
-    {
       id: 'journal',
-      label: 'Go to Journal',
+      label: 'Journal',
       icon: <BookOpen className="h-4 w-4" />,
       shortcut: 'G J',
       action: () => navigate('/journal'),
       category: 'navigation',
     },
     {
-      id: 'games',
-      label: 'Go to Games',
+      id: 'vision',
+      label: 'Vision Board',
+      icon: <Image className="h-4 w-4" />,
+      shortcut: 'G V',
+      action: () => navigate('/vision'),
+      category: 'navigation',
+    },
+    {
+      id: 'decisions',
+      label: 'Decision Log',
+      icon: <Scale className="h-4 w-4" />,
+      shortcut: 'G E',
+      action: () => navigate('/decisions'),
+      category: 'navigation',
+    },
+    {
+      id: 'quote',
+      label: 'Daily Quote',
+      icon: <Quote className="h-4 w-4" />,
+      shortcut: 'G Q',
+      action: () => navigate('/quote'),
+      category: 'navigation',
+    },
+    {
+      id: 'reading',
+      label: 'Reading Vault',
+      icon: <Library className="h-4 w-4" />,
+      shortcut: 'G R',
+      action: () => navigate('/reading'),
+      category: 'navigation',
+    },
+    {
+      id: 'arcade',
+      label: 'Polymath Arcade',
       icon: <Gamepad2 className="h-4 w-4" />,
-      shortcut: 'G G',
-      action: () => navigate('/games'),
-      category: 'navigation',
-    },
-    {
-      id: 'focus',
-      label: 'Go to Focus',
-      icon: <Timer className="h-4 w-4" />,
-      shortcut: 'G F',
-      action: () => navigate('/focus'),
-      category: 'navigation',
-    },
-    {
-      id: 'runway',
-      label: 'Go to Runway Simulator',
-      icon: <Calculator className="h-4 w-4" />,
-      shortcut: 'G $',
-      action: () => navigate('/runway'),
-      category: 'navigation',
-    },
-    {
-      id: 'crm',
-      label: 'Go to Investor CRM',
-      icon: <Users className="h-4 w-4" />,
-      shortcut: 'G C',
-      action: () => navigate('/crm'),
+      shortcut: 'G A',
+      action: () => navigate('/arcade'),
       category: 'navigation',
     },
     // Actions
     {
-      id: 'new-task',
-      label: 'Create New Task',
+      id: 'new-journal',
+      label: 'New Journal Entry',
       icon: <Plus className="h-4 w-4" />,
-      shortcut: 'N T',
-      action: () => {
-        navigate('/dashboard?action=new-task');
-      },
-      category: 'actions',
-    },
-    {
-      id: 'quick-journal',
-      label: 'Quick Journal Entry',
-      icon: <BookOpen className="h-4 w-4" />,
       shortcut: 'N J',
-      action: () => {
-        navigate('/journal?action=quick-entry');
-      },
+      action: () => navigate('/journal'),
       category: 'actions',
     },
     {
-      id: 'start-sprint',
-      label: 'Start Focus Sprint',
-      icon: <Flame className="h-4 w-4" />,
-      shortcut: 'S S',
-      action: () => {
-        navigate('/focus?action=start');
-      },
-      category: 'actions',
-    },
-    {
-      id: 'motivation',
-      label: 'Motivation Mode',
-      icon: <Sparkles className="h-4 w-4" />,
-      shortcut: 'M M',
-      action: () => {
-        navigate('/vision?mode=motivation');
-      },
+      id: 'new-decision',
+      label: 'Log Decision',
+      icon: <Scale className="h-4 w-4" />,
+      shortcut: 'N D',
+      action: () => navigate('/decisions'),
       category: 'actions',
     },
     // Settings
@@ -169,13 +130,12 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const actionCommands = commands.filter((c) => c.category === 'actions');
   const settingsCommands = commands.filter((c) => c.category === 'settings');
 
-  // Handle keyboard navigation shortcuts (G + key sequences)
+  // Handle keyboard navigation shortcuts
   useEffect(() => {
     let keySequence = '';
     let sequenceTimeout: NodeJS.Timeout;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if in input or command palette is open
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -191,27 +151,26 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       if (keySequence === 'gd') {
         navigate('/dashboard');
         keySequence = '';
-      } else if (keySequence === 'gv') {
-        navigate('/vision');
-        keySequence = '';
-      } else if (keySequence === 'gr') {
-        navigate('/roadmap');
-        keySequence = '';
       } else if (keySequence === 'gj') {
         navigate('/journal');
         keySequence = '';
-      } else if (keySequence === 'gg') {
-        navigate('/games');
+      } else if (keySequence === 'gv') {
+        navigate('/vision');
         keySequence = '';
-      } else if (keySequence === 'gf') {
-        navigate('/focus');
+      } else if (keySequence === 'ge') {
+        navigate('/decisions');
         keySequence = '';
-      } else if (keySequence === 'gc') {
-        navigate('/crm');
+      } else if (keySequence === 'gq') {
+        navigate('/quote');
+        keySequence = '';
+      } else if (keySequence === 'gr') {
+        navigate('/reading');
+        keySequence = '';
+      } else if (keySequence === 'ga') {
+        navigate('/arcade');
         keySequence = '';
       }
 
-      // Reset sequence after 500ms
       sequenceTimeout = setTimeout(() => {
         keySequence = '';
       }, 500);
@@ -242,7 +201,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               No results found.
             </Command.Empty>
 
-            {/* Navigation */}
             <Command.Group heading="Navigation">
               {navigationCommands.map((command) => (
                 <Command.Item
@@ -265,7 +223,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               ))}
             </Command.Group>
 
-            {/* Actions */}
             <Command.Group heading="Actions">
               {actionCommands.map((command) => (
                 <Command.Item
@@ -288,7 +245,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               ))}
             </Command.Group>
 
-            {/* Settings */}
             <Command.Group heading="Settings">
               {settingsCommands.map((command) => (
                 <Command.Item

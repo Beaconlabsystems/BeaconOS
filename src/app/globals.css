@@ -5,47 +5,47 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 0 0% 9%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 199 89% 48%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 199 89% 48%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 9%;
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 199 89% 48%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 199 89% 48%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 64%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 0 0% 80%;
   }
 }
 
@@ -77,7 +77,7 @@
   @apply bg-muted-foreground/40;
 }
 
-/* Animations */
+/* Subtle animations */
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -87,18 +87,9 @@
   }
 }
 
-@keyframes slide-in-from-right {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
 @keyframes slide-in-from-bottom {
   from {
-    transform: translateY(20px);
+    transform: translateY(8px);
     opacity: 0;
   }
   to {
@@ -107,81 +98,17 @@
   }
 }
 
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(14, 165, 233, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(14, 165, 233, 0.8);
-  }
-}
-
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
 .animate-fade-in {
-  animation: fade-in 0.3s ease-out;
-}
-
-.animate-slide-in-right {
-  animation: slide-in-from-right 0.3s ease-out;
+  animation: fade-in 0.2s ease-out;
 }
 
 .animate-slide-in-bottom {
-  animation: slide-in-from-bottom 0.4s ease-out;
+  animation: slide-in-from-bottom 0.3s ease-out;
 }
 
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-.shimmer {
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.1) 50%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 2s infinite;
-}
-
-/* Glass effect */
-.glass {
-  @apply backdrop-blur-xl bg-white/10 border border-white/20;
-}
-
-.dark .glass {
-  @apply bg-black/20 border-white/10;
-}
-
-/* Gradient text */
-.gradient-text {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-beacon-400 to-beacon-600;
-}
-
-/* Card hover effects */
+/* Card styles */
 .card-hover {
-  @apply transition-all duration-300 hover:shadow-xl hover:scale-[1.02];
+  @apply transition-all duration-200 hover:bg-accent/50;
 }
 
 /* Command palette styles */
@@ -215,49 +142,7 @@
 
 /* Focus ring */
 .focus-ring {
-  @apply focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background;
-}
-
-/* Premium button styles */
-.btn-premium {
-  @apply relative overflow-hidden;
-}
-
-.btn-premium::before {
-  content: '';
-  @apply absolute inset-0 bg-gradient-to-r from-beacon-400/20 to-beacon-600/20 opacity-0 transition-opacity duration-300;
-}
-
-.btn-premium:hover::before {
-  @apply opacity-100;
-}
-
-/* Vision board card */
-.vision-card {
-  @apply relative overflow-hidden rounded-xl transition-all duration-300;
-}
-
-.vision-card::after {
-  content: '';
-  @apply absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-300;
-}
-
-.vision-card:hover::after {
-  @apply opacity-100;
-}
-
-/* Streak fire animation */
-@keyframes fire {
-  0%, 100% {
-    transform: scaleY(1) translateY(0);
-  }
-  50% {
-    transform: scaleY(1.1) translateY(-2px);
-  }
-}
-
-.fire-icon {
-  animation: fire 0.5s ease-in-out infinite;
+  @apply focus:outline-none focus:ring-2 focus:ring-ring/20 focus:ring-offset-2 focus:ring-offset-background;
 }
 
 /* Loading skeleton */
@@ -265,26 +150,51 @@
   @apply animate-pulse bg-muted rounded;
 }
 
-/* Motivation mode overlay */
-.motivation-overlay {
-  @apply fixed inset-0 z-50 bg-black flex items-center justify-center;
+/* Prose styles for journal/reading */
+.prose-minimal {
+  @apply text-foreground leading-relaxed;
 }
 
-/* Japanese mascot bounce */
-@keyframes mascot-bounce {
+.prose-minimal h1,
+.prose-minimal h2,
+.prose-minimal h3 {
+  @apply font-semibold tracking-tight;
+}
+
+.prose-minimal p {
+  @apply mb-4;
+}
+
+.prose-minimal blockquote {
+  @apply border-l-2 border-border pl-4 italic text-muted-foreground;
+}
+
+/* Chess board */
+.chess-square-light {
+  @apply bg-stone-200 dark:bg-stone-700;
+}
+
+.chess-square-dark {
+  @apply bg-stone-400 dark:bg-stone-800;
+}
+
+/* Tetris */
+.tetris-block {
+  @apply border border-white/20;
+}
+
+/* Japanese learning mascot */
+@keyframes gentle-bounce {
   0%, 100% {
-    transform: translateY(0) rotate(0deg);
+    transform: translateY(0);
   }
-  25% {
-    transform: translateY(-10px) rotate(-5deg);
-  }
-  75% {
-    transform: translateY(-5px) rotate(5deg);
+  50% {
+    transform: translateY(-4px);
   }
 }
 
-.mascot-bounce {
-  animation: mascot-bounce 2s ease-in-out infinite;
+.mascot-animate {
+  animation: gentle-bounce 2s ease-in-out infinite;
 }
 
 /* Responsive typography */

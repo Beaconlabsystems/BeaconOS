@@ -1,239 +1,99 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { format, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, subDays, addDays } from 'date-fns';
 import {
-  Calendar,
-  Plus,
-  BookOpen,
-  Lightbulb,
-  AlertCircle,
-  Clock,
-  Trophy,
   ChevronLeft,
   ChevronRight,
-  FileText,
-  Pencil,
+  Plus,
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import type { JournalEntry, Decision, Mood } from '@/types';
-import { JOURNAL_PROMPTS } from '@/types';
-import { formatDate, cn } from '@/lib/utils';
-import { format, addDays, addMonths, subDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
+import { cn } from '@/lib/utils';
 
-const MOOD_COLORS: Record<Mood, string> = {
-  great: 'bg-green-500',
-  good: 'bg-emerald-400',
-  okay: 'bg-yellow-400',
-  low: 'bg-orange-400',
-  struggling: 'bg-red-500',
-};
+interface JournalEntry {
+  id: string;
+  date: string;
+  content: string;
+}
 
-const MOOD_LABELS: Record<Mood, string> = {
-  great: 'Great',
-  good: 'Good',
-  okay: 'Okay',
-  low: 'Low',
-  struggling: 'Struggling',
-};
-
-// Mock data for demo
+// Mock data
 const MOCK_ENTRIES: JournalEntry[] = [
   {
     id: '1',
-    user_id: 'demo',
-    entry_date: format(new Date(), 'yyyy-MM-dd'),
-    one_move: 'Complete grant application',
-    avoiding: 'Calling that potential investor',
-    sixty_minutes: 'Deep work on product roadmap',
-    winning_evidence: 'Closed first pilot customer',
-    content: 'Great progress today. Team morale is high.',
-    mood: 'great',
-    energy_level: 4,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    date: format(new Date(), 'yyyy-MM-dd'),
+    content: 'Made good progress on the Innovate UK application today. The technical section is coming together. Need to focus on the budget breakdown tomorrow.',
+  },
+  {
+    id: '2',
+    date: format(subDays(new Date(), 2), 'yyyy-MM-dd'),
+    content: 'Thinking about the product roadmap. We need to prioritize ruthlessly - the MVP should be laser-focused on the core value proposition.',
   },
 ];
 
-const MOCK_DECISIONS: Decision[] = [
-  {
-    id: '1',
-    user_id: 'demo',
-    decision_date: format(subDays(new Date(), 3), 'yyyy-MM-dd'),
-    title: 'Pivot to B2B model',
-    decision: 'Decided to focus on B2B SaaS instead of consumer',
-    rationale: 'Better unit economics and clearer path to revenue',
-    expected_outcome: 'Higher conversion rates and better retention',
-    actual_outcome: null,
-    was_correct: null,
-    lessons_learned: null,
-    review_date: format(addMonths(new Date(), 3), 'yyyy-MM-dd'),
-    tags: [],
-    created_at: subDays(new Date(), 3).toISOString(),
-    updated_at: new Date().toISOString(),
-  },
+const PROMPTS = [
+  "What's on your mind?",
+  "What are you grateful for today?",
+  "What's one thing you learned?",
+  "What would make today great?",
+  "What's been challenging lately?",
 ];
 
 export default function JournalPage() {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<JournalEntry[]>(MOCK_ENTRIES);
-  const [decisions, setDecisions] = useState<Decision[]>(MOCK_DECISIONS);
-  const [selectedDate, setSelectedDate] = useState(new Date());
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [isEntryDialogOpen, setIsEntryDialogOpen] = useState(false);
-  const [isDecisionDialogOpen, setIsDecisionDialogOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const [entryForm, setEntryForm] = useState({
-    one_move: '',
-    avoiding: '',
-    sixty_minutes: '',
-    winning_evidence: '',
-    content: '',
-    mood: '' as Mood | '',
-    energy_level: 3,
-  });
-
-  const [decisionForm, setDecisionForm] = useState({
-    title: '',
-    decision: '',
-    rationale: '',
-    expected_outcome: '',
-    review_date: '',
-  });
-
-  useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
-
+  const randomPrompt = PROMPTS[Math.floor(Math.random() * PROMPTS.length)];
 
   const getEntryForDate = (date: Date): JournalEntry | undefined => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    return entries.find((e) => e.entry_date === dateStr);
-  };
-
-  const handleSaveEntry = () => {
-    setSaving(true);
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    const existingEntry = getEntryForDate(selectedDate);
-
-    if (existingEntry) {
-      setEntries(entries.map(e =>
-        e.id === existingEntry.id
-          ? {
-              ...e,
-              ...entryForm,
-              entry_date: dateStr,
-              mood: entryForm.mood as Mood,
-            }
-          : e
-      ));
-    } else {
-      const newEntry: JournalEntry = {
-        id: Date.now().toString(),
-        user_id: 'demo',
-        entry_date: dateStr,
-        one_move: entryForm.one_move || null,
-        avoiding: entryForm.avoiding || null,
-        sixty_minutes: entryForm.sixty_minutes || null,
-        winning_evidence: entryForm.winning_evidence || null,
-        content: entryForm.content || null,
-        mood: entryForm.mood as Mood || null,
-        energy_level: entryForm.energy_level,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setEntries([newEntry, ...entries]);
-    }
-
-    toast({ title: 'Entry saved' });
-    setIsEntryDialogOpen(false);
-    setSaving(false);
-  };
-
-  const handleSaveDecision = () => {
-    if (!decisionForm.title || !decisionForm.decision) return;
-
-    setSaving(true);
-    const newDecision: Decision = {
-      id: Date.now().toString(),
-      user_id: 'demo',
-      decision_date: format(new Date(), 'yyyy-MM-dd'),
-      title: decisionForm.title,
-      decision: decisionForm.decision,
-      rationale: decisionForm.rationale || null,
-      expected_outcome: decisionForm.expected_outcome || null,
-      review_date: decisionForm.review_date || null,
-      actual_outcome: null,
-      was_correct: null,
-      lessons_learned: null,
-      tags: [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    setDecisions([newDecision, ...decisions]);
-    toast({ title: 'Decision logged' });
-    setIsDecisionDialogOpen(false);
-    setDecisionForm({
-      title: '',
-      decision: '',
-      rationale: '',
-      expected_outcome: '',
-      review_date: '',
-    });
-    setSaving(false);
+    return entries.find((e) => e.date === dateStr);
   };
 
   const openEntryForDate = (date: Date) => {
     setSelectedDate(date);
     const existing = getEntryForDate(date);
+    setContent(existing?.content || '');
+    setIsDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!content.trim()) return;
+    setSaving(true);
+
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const existing = getEntryForDate(selectedDate);
+
     if (existing) {
-      setEntryForm({
-        one_move: existing.one_move || '',
-        avoiding: existing.avoiding || '',
-        sixty_minutes: existing.sixty_minutes || '',
-        winning_evidence: existing.winning_evidence || '',
-        content: existing.content || '',
-        mood: existing.mood || '',
-        energy_level: existing.energy_level || 3,
-      });
+      setEntries(entries.map(e =>
+        e.id === existing.id ? { ...e, content } : e
+      ));
     } else {
-      setEntryForm({
-        one_move: '',
-        avoiding: '',
-        sixty_minutes: '',
-        winning_evidence: '',
-        content: '',
-        mood: '',
-        energy_level: 3,
-      });
+      setEntries([
+        { id: Date.now().toString(), date: dateStr, content },
+        ...entries,
+      ]);
     }
-    setIsEntryDialogOpen(true);
+
+    toast({ title: 'Entry saved' });
+    setIsDialogOpen(false);
+    setSaving(false);
   };
 
   const weekDays = eachDayOfInterval({
@@ -241,410 +101,137 @@ export default function JournalPage() {
     end: endOfWeek(weekStart, { weekStartsOn: 1 }),
   });
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-20 bg-muted rounded-xl animate-pulse" />
-        <div className="grid grid-cols-7 gap-2">
-          {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-            <div key={i} className="h-24 bg-muted rounded-xl animate-pulse" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Journal</h1>
-          <p className="text-muted-foreground mt-1">
-            Reflect on your journey and log key decisions
-          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">Journal</h1>
+          <p className="text-muted-foreground mt-1">Reflect and capture your thoughts</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => setIsDecisionDialogOpen(true)}>
-            <FileText className="mr-2 h-4 w-4" />
-            Log Decision
-          </Button>
-          <Button onClick={() => openEntryForDate(new Date())}>
-            <Plus className="mr-2 h-4 w-4" />
-            Today&apos;s Entry
-          </Button>
-        </div>
+        <Button onClick={() => openEntryForDate(new Date())}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Entry
+        </Button>
       </div>
 
-      <Tabs defaultValue="calendar" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="calendar">Calendar</TabsTrigger>
-          <TabsTrigger value="decisions">Decision Log</TabsTrigger>
-        </TabsList>
+      {/* Week Calendar */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setWeekStart(subDays(weekStart, 7))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <CardTitle className="text-sm font-medium">
+              {format(weekStart, 'MMM d')} - {format(endOfWeek(weekStart, { weekStartsOn: 1 }), 'MMM d, yyyy')}
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setWeekStart(addDays(weekStart, 7))}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-7 gap-2">
+            {weekDays.map((day) => {
+              const entry = getEntryForDate(day);
+              const isToday = isSameDay(day, new Date());
 
-        {/* Calendar Tab */}
-        <TabsContent value="calendar" className="space-y-6">
-          {/* Week Navigation */}
-          <Card>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setWeekStart(subDays(weekStart, 7))}
+              return (
+                <button
+                  key={day.toISOString()}
+                  onClick={() => openEntryForDate(day)}
+                  className={cn(
+                    'p-3 rounded-lg border text-left transition-colors min-h-[80px]',
+                    isToday && 'ring-1 ring-primary',
+                    entry ? 'bg-accent/50' : 'hover:bg-accent/30'
+                  )}
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <h3 className="font-semibold">
-                  {format(weekStart, 'MMM d')} - {format(endOfWeek(weekStart, { weekStartsOn: 1 }), 'MMM d, yyyy')}
-                </h3>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setWeekStart(addDays(weekStart, 7))}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-7 gap-2">
-                {weekDays.map((day) => {
-                  const entry = getEntryForDate(day);
-                  const isToday = isSameDay(day, new Date());
+                  <div className="text-xs text-muted-foreground">
+                    {format(day, 'EEE')}
+                  </div>
+                  <div className={cn('text-lg font-medium', isToday && 'text-primary')}>
+                    {format(day, 'd')}
+                  </div>
+                  {entry && (
+                    <div className="mt-1 h-1 w-4 bg-primary rounded-full" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
-                  return (
-                    <div
-                      key={day.toISOString()}
-                      onClick={() => openEntryForDate(day)}
-                      className={cn(
-                        'p-3 rounded-lg border cursor-pointer transition-colors min-h-[100px]',
-                        isToday && 'ring-2 ring-primary',
-                        entry ? 'bg-primary/5 border-primary/20' : 'hover:bg-muted'
-                      )}
-                    >
-                      <div className="text-sm font-medium">
-                        {format(day, 'EEE')}
-                      </div>
-                      <div className={cn('text-2xl font-bold', isToday && 'text-primary')}>
-                        {format(day, 'd')}
-                      </div>
-                      {entry && (
-                        <div className="mt-2 space-y-1">
-                          {entry.mood && (
-                            <div className={cn('h-2 w-2 rounded-full', MOOD_COLORS[entry.mood])} />
-                          )}
-                          {entry.content && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-                              {entry.content.substring(0, 50)}...
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Recent Entries */}
+      {/* Recent Entries */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+          Recent Entries
+        </h2>
+        {entries.length === 0 ? (
           <Card>
-            <CardHeader>
-              <CardTitle>Recent Entries</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {entries.slice(0, 5).map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="flex items-start gap-4 p-4 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => openEntryForDate(parseISO(entry.entry_date))}
-                  >
-                    <div className="flex flex-col items-center">
-                      <div className="text-2xl font-bold">
-                        {format(parseISO(entry.entry_date), 'd')}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {format(parseISO(entry.entry_date), 'MMM')}
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      {entry.one_move && (
-                        <div className="flex items-center gap-2 text-sm mb-1">
-                          <Lightbulb className="h-4 w-4 text-yellow-500" />
-                          <span className="truncate">{entry.one_move}</span>
-                        </div>
-                      )}
-                      {entry.content && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {entry.content}
-                        </p>
-                      )}
-                    </div>
-                    {entry.mood && (
-                      <Badge variant="secondary">{MOOD_LABELS[entry.mood]}</Badge>
-                    )}
-                  </div>
-                ))}
-                {entries.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No entries yet. Start journaling today!
-                  </div>
-                )}
-              </div>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              No entries yet. Start journaling today.
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Decisions Tab */}
-        <TabsContent value="decisions" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Decision Log</CardTitle>
-              <CardDescription>
-                Track important decisions for future reflection
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {decisions.map((decision) => (
-                  <div
-                    key={decision.id}
-                    className="p-4 rounded-lg border"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-semibold">{decision.title}</h4>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {formatDate(decision.decision_date, 'MMM d, yyyy')}
-                        </p>
-                      </div>
-                      {decision.review_date && (
-                        <Badge variant="outline">
-                          Review: {formatDate(decision.review_date, 'MMM d')}
-                        </Badge>
-                      )}
+        ) : (
+          entries.slice(0, 5).map((entry) => (
+            <Card
+              key={entry.id}
+              className="cursor-pointer hover:bg-accent/30 transition-colors"
+              onClick={() => openEntryForDate(parseISO(entry.date))}
+            >
+              <CardContent className="py-4">
+                <div className="flex items-start gap-4">
+                  <div className="text-center min-w-[40px]">
+                    <div className="text-xl font-medium">
+                      {format(parseISO(entry.date), 'd')}
                     </div>
-                    <p className="mt-3">{decision.decision}</p>
-                    {decision.rationale && (
-                      <div className="mt-3 p-3 bg-muted rounded-lg">
-                        <p className="text-sm font-medium">Rationale:</p>
-                        <p className="text-sm text-muted-foreground">{decision.rationale}</p>
-                      </div>
-                    )}
-                    {decision.expected_outcome && (
-                      <div className="mt-2 text-sm">
-                        <span className="font-medium">Expected outcome: </span>
-                        <span className="text-muted-foreground">{decision.expected_outcome}</span>
-                      </div>
-                    )}
+                    <div className="text-xs text-muted-foreground">
+                      {format(parseISO(entry.date), 'MMM')}
+                    </div>
                   </div>
-                ))}
-                {decisions.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No decisions logged yet. Start tracking important choices!
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                  <p className="text-sm text-muted-foreground line-clamp-3">
+                    {entry.content}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
 
       {/* Entry Dialog */}
-      <Dialog open={isEntryDialogOpen} onOpenChange={setIsEntryDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              Journal Entry - {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+              {format(selectedDate, 'EEEE, MMMM d, yyyy')}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6 py-4">
-            {/* Prompts */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Lightbulb className="h-4 w-4 text-yellow-500" />
-                  {JOURNAL_PROMPTS.one_move}
-                </Label>
-                <Textarea
-                  value={entryForm.one_move}
-                  onChange={(e) => setEntryForm({ ...entryForm, one_move: e.target.value })}
-                  placeholder="The one thing that would move the needle..."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-orange-500" />
-                  {JOURNAL_PROMPTS.avoiding}
-                </Label>
-                <Textarea
-                  value={entryForm.avoiding}
-                  onChange={(e) => setEntryForm({ ...entryForm, avoiding: e.target.value })}
-                  placeholder="Be honest with yourself..."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-blue-500" />
-                  {JOURNAL_PROMPTS.sixty_minutes}
-                </Label>
-                <Textarea
-                  value={entryForm.sixty_minutes}
-                  onChange={(e) => setEntryForm({ ...entryForm, sixty_minutes: e.target.value })}
-                  placeholder="Your highest-leverage hour..."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Trophy className="h-4 w-4 text-green-500" />
-                  {JOURNAL_PROMPTS.winning_evidence}
-                </Label>
-                <Textarea
-                  value={entryForm.winning_evidence}
-                  onChange={(e) => setEntryForm({ ...entryForm, winning_evidence: e.target.value })}
-                  placeholder="Celebrate your wins..."
-                />
-              </div>
-            </div>
-
-            {/* Free-form content */}
-            <div className="space-y-2">
-              <Label>Free Writing</Label>
-              <Textarea
-                value={entryForm.content}
-                onChange={(e) => setEntryForm({ ...entryForm, content: e.target.value })}
-                placeholder="Any other thoughts..."
-                className="min-h-[100px]"
-              />
-            </div>
-
-            {/* Mood & Energy */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Mood</Label>
-                <Select
-                  value={entryForm.mood}
-                  onValueChange={(v: Mood) => setEntryForm({ ...entryForm, mood: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="How are you feeling?" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(MOOD_LABELS) as Mood[]).map((m) => (
-                      <SelectItem key={m} value={m}>
-                        <div className="flex items-center gap-2">
-                          <div className={cn('h-3 w-3 rounded-full', MOOD_COLORS[m])} />
-                          {MOOD_LABELS[m]}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Energy Level (1-5)</Label>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map((level) => (
-                    <Button
-                      key={level}
-                      type="button"
-                      variant={entryForm.energy_level === level ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setEntryForm({ ...entryForm, energy_level: level })}
-                    >
-                      {level}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </div>
+          <div className="py-4">
+            <Textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder={randomPrompt}
+              className="min-h-[200px] resize-none text-base"
+            />
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEntryDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEntry} loading={saving}>
-              Save Entry
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Decision Dialog */}
-      <Dialog open={isDecisionDialogOpen} onOpenChange={setIsDecisionDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Log a Decision</DialogTitle>
-            <DialogDescription>
-              Record important decisions for future reflection and accountability.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Decision Title</Label>
-              <Input
-                value={decisionForm.title}
-                onChange={(e) => setDecisionForm({ ...decisionForm, title: e.target.value })}
-                placeholder="e.g., Decided to pursue Innovate UK grant"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>The Decision</Label>
-              <Textarea
-                value={decisionForm.decision}
-                onChange={(e) => setDecisionForm({ ...decisionForm, decision: e.target.value })}
-                placeholder="What did you decide?"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Rationale</Label>
-              <Textarea
-                value={decisionForm.rationale}
-                onChange={(e) => setDecisionForm({ ...decisionForm, rationale: e.target.value })}
-                placeholder="Why did you make this decision?"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Expected Outcome</Label>
-              <Textarea
-                value={decisionForm.expected_outcome}
-                onChange={(e) => setDecisionForm({ ...decisionForm, expected_outcome: e.target.value })}
-                placeholder="What do you expect to happen?"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Review Date</Label>
-              <Input
-                type="date"
-                value={decisionForm.review_date}
-                onChange={(e) => setDecisionForm({ ...decisionForm, review_date: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDecisionDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveDecision}
-              loading={saving}
-              disabled={!decisionForm.title || !decisionForm.decision}
-            >
-              Log Decision
+            <Button onClick={handleSave} disabled={!content.trim() || saving}>
+              {saving ? 'Saving...' : 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>

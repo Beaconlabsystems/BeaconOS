@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { format } from 'date-fns';
 import {
   Plus,
@@ -10,12 +10,11 @@ import {
   ChevronUp,
   Star,
   Target,
-  Clock,
   MessageSquare,
   Lightbulb,
-  Calendar,
+  Loader2,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,31 +28,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { usePriorities } from '@/hooks/use-priorities';
 import { cn } from '@/lib/utils';
+import type { Priority } from '@/lib/supabase/types';
 
 type Difficulty = 1 | 2 | 3 | 4 | 5;
-type Priority = 'high' | 'medium' | 'low';
+type PriorityLevel = 'high' | 'medium' | 'low';
 
-interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  priority: Priority;
-  completed: boolean;
-  createdAt: string;
-  completedAt?: string;
-  difficulty?: Difficulty;
-  reflection?: string;
-  tips?: string;
-}
-
-const PRIORITY_COLORS: Record<Priority, string> = {
+const PRIORITY_COLORS: Record<PriorityLevel, string> = {
   high: 'bg-red-500/10 text-red-500 border-red-500/30',
   medium: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
   low: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30',
 };
 
-const PRIORITY_LABELS: Record<Priority, string> = {
+const PRIORITY_LABELS: Record<PriorityLevel, string> = {
   high: 'High Priority',
   medium: 'Medium Priority',
   low: 'Low Priority',
@@ -67,49 +55,28 @@ const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   5: 'Very Hard',
 };
 
-const MOCK_TASKS: Task[] = [
-  {
-    id: '1',
-    title: 'Review investor pitch deck',
-    description: 'Go through the latest version and make notes',
-    priority: 'high',
-    completed: false,
-    createdAt: format(new Date(), 'yyyy-MM-dd'),
-  },
-  {
-    id: '2',
-    title: 'Email potential advisors',
-    priority: 'medium',
-    completed: false,
-    createdAt: format(new Date(), 'yyyy-MM-dd'),
-  },
-  {
-    id: '3',
-    title: 'Update roadmap milestones',
-    description: 'Add Q2 targets',
-    priority: 'low',
-    completed: true,
-    createdAt: format(new Date(), 'yyyy-MM-dd'),
-    completedAt: format(new Date(), 'yyyy-MM-dd'),
-    difficulty: 2,
-    reflection: 'Was easier than expected once I got started.',
-    tips: 'Start with the most certain milestones first.',
-  },
-];
-
 export default function PrioritiesPage() {
   const { toast } = useToast();
-  const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
+  const {
+    priorities,
+    loading,
+    addPriority,
+    completePriority,
+    reopenPriority,
+    deletePriority,
+  } = usePriorities();
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
-  const [completingTask, setCompletingTask] = useState<Task | null>(null);
+  const [completingTask, setCompletingTask] = useState<Priority | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCompleted, setShowCompleted] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
-    priority: 'medium' as Priority,
+    priority: 'medium' as PriorityLevel,
   });
 
   const [completeData, setCompleteData] = useState({
@@ -118,69 +85,74 @@ export default function PrioritiesPage() {
     tips: '',
   });
 
-  const activeTasks = tasks.filter(t => !t.completed);
-  const completedTasks = tasks.filter(t => t.completed);
+  const activeTasks = priorities.filter(t => !t.completed);
+  const completedTasks = priorities.filter(t => t.completed);
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!newTask.title.trim()) return;
 
-    const task: Task = {
-      id: Date.now().toString(),
-      title: newTask.title,
-      description: newTask.description || undefined,
-      priority: newTask.priority,
-      completed: false,
-      createdAt: format(new Date(), 'yyyy-MM-dd'),
-    };
-
-    setTasks([task, ...tasks]);
-    setNewTask({ title: '', description: '', priority: 'medium' });
-    setIsAddDialogOpen(false);
-    toast({ title: 'Priority added' });
+    try {
+      setIsSaving(true);
+      await addPriority({
+        title: newTask.title,
+        description: newTask.description || undefined,
+        priority: newTask.priority,
+      });
+      setNewTask({ title: '', description: '', priority: 'medium' });
+      setIsAddDialogOpen(false);
+      toast({ title: 'Priority added' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to add priority', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleStartComplete = (task: Task) => {
+  const handleStartComplete = (task: Priority) => {
     setCompletingTask(task);
     setCompleteData({ difficulty: 3, reflection: '', tips: '' });
     setIsCompleteDialogOpen(true);
   };
 
-  const handleCompleteTask = () => {
+  const handleCompleteTask = async () => {
     if (!completingTask) return;
 
-    setTasks(tasks.map(t =>
-      t.id === completingTask.id
-        ? {
-            ...t,
-            completed: true,
-            completedAt: format(new Date(), 'yyyy-MM-dd'),
-            difficulty: completeData.difficulty,
-            reflection: completeData.reflection || undefined,
-            tips: completeData.tips || undefined,
-          }
-        : t
-    ));
-
-    setIsCompleteDialogOpen(false);
-    setCompletingTask(null);
-    toast({ title: 'Task completed!', description: 'Reflection saved.' });
+    try {
+      setIsSaving(true);
+      await completePriority(completingTask.id, {
+        difficulty: completeData.difficulty,
+        reflection: completeData.reflection || undefined,
+        tips: completeData.tips || undefined,
+      });
+      setIsCompleteDialogOpen(false);
+      setCompletingTask(null);
+      toast({ title: 'Task completed!', description: 'Reflection saved.' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to complete task', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleUncomplete = (taskId: string) => {
-    setTasks(tasks.map(t =>
-      t.id === taskId
-        ? { ...t, completed: false, completedAt: undefined, difficulty: undefined, reflection: undefined, tips: undefined }
-        : t
-    ));
-    toast({ title: 'Task reopened' });
+  const handleUncomplete = async (taskId: string) => {
+    try {
+      await reopenPriority(taskId);
+      toast({ title: 'Task reopened' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to reopen task', variant: 'destructive' });
+    }
   };
 
-  const handleDelete = (taskId: string) => {
-    setTasks(tasks.filter(t => t.id !== taskId));
-    toast({ title: 'Task removed' });
+  const handleDelete = async (taskId: string) => {
+    try {
+      await deletePriority(taskId);
+      toast({ title: 'Task removed' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to delete task', variant: 'destructive' });
+    }
   };
 
-  const renderDifficultyStars = (difficulty: Difficulty) => {
+  const renderDifficultyStars = (difficulty: number) => {
     return (
       <div className="flex gap-0.5">
         {[1, 2, 3, 4, 5].map(i => (
@@ -197,6 +169,14 @@ export default function PrioritiesPage() {
   };
 
   const today = format(new Date(), 'EEEE, MMMM d');
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -356,9 +336,9 @@ export default function PrioritiesPage() {
                           <h3 className="font-medium line-through text-muted-foreground">{task.title}</h3>
                           {task.difficulty && renderDifficultyStars(task.difficulty)}
                         </div>
-                        {task.completedAt && (
+                        {task.completed_at && (
                           <p className="text-xs text-muted-foreground mt-1">
-                            Completed {format(new Date(task.completedAt), 'MMM d')}
+                            Completed {format(new Date(task.completed_at), 'MMM d')}
                           </p>
                         )}
                       </div>
@@ -377,7 +357,7 @@ export default function PrioritiesPage() {
                           <div className="flex items-center gap-2 text-sm">
                             <Star className="h-4 w-4 text-muted-foreground" />
                             <span className="text-muted-foreground">Difficulty:</span>
-                            <span>{DIFFICULTY_LABELS[task.difficulty]}</span>
+                            <span>{DIFFICULTY_LABELS[task.difficulty as Difficulty]}</span>
                           </div>
                         )}
 
@@ -461,7 +441,7 @@ export default function PrioritiesPage() {
             <div className="space-y-2">
               <Label>Priority Level</Label>
               <div className="flex gap-2">
-                {(['high', 'medium', 'low'] as Priority[]).map(p => (
+                {(['high', 'medium', 'low'] as PriorityLevel[]).map(p => (
                   <Button
                     key={p}
                     type="button"
@@ -483,7 +463,8 @@ export default function PrioritiesPage() {
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddTask} disabled={!newTask.title.trim()}>
+            <Button onClick={handleAddTask} disabled={!newTask.title.trim() || isSaving}>
+              {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Add Priority
             </Button>
           </DialogFooter>
@@ -561,8 +542,8 @@ export default function PrioritiesPage() {
             <Button variant="outline" onClick={() => setIsCompleteDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCompleteTask}>
-              <Check className="h-4 w-4 mr-2" />
+            <Button onClick={handleCompleteTask} disabled={isSaving}>
+              {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
               Complete Task
             </Button>
           </DialogFooter>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Play, Pause, RotateCcw, Coffee, Brain, Settings } from 'lucide-react';
+import { Play, Pause, RotateCcw, Coffee, Brain, Settings, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,34 +14,39 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useFocus } from '@/hooks/use-focus';
 import { cn } from '@/lib/utils';
 
 type TimerMode = 'focus' | 'short-break' | 'long-break';
 
-interface TimerSettings {
-  focusMinutes: number;
-  shortBreakMinutes: number;
-  longBreakMinutes: number;
-  sessionsBeforeLongBreak: number;
-}
-
-const DEFAULT_SETTINGS: TimerSettings = {
-  focusMinutes: 25,
-  shortBreakMinutes: 5,
-  longBreakMinutes: 15,
-  sessionsBeforeLongBreak: 4,
-};
-
 export default function FocusPage() {
   const { toast } = useToast();
-  const [settings, setSettings] = useState<TimerSettings>(DEFAULT_SETTINGS);
+  const {
+    settings,
+    loading,
+    saveSettings,
+    startSession,
+    completeSession,
+    completedFocusSessions,
+    totalFocusMinutes,
+  } = useFocus();
+
   const [mode, setMode] = useState<TimerMode>('focus');
-  const [timeLeft, setTimeLeft] = useState(settings.focusMinutes * 60);
+  const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isRunning, setIsRunning] = useState(false);
-  const [completedSessions, setCompletedSessions] = useState(0);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [tempSettings, setTempSettings] = useState(settings);
+  const [saving, setSaving] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize timeLeft when settings load
+  useEffect(() => {
+    if (!loading) {
+      setTimeLeft(settings.focusMinutes * 60);
+      setTempSettings(settings);
+    }
+  }, [loading, settings]);
 
   const getModeMinutes = useCallback((m: TimerMode) => {
     switch (m) {
@@ -55,6 +60,7 @@ export default function FocusPage() {
     const targetMode = newMode || mode;
     setTimeLeft(getModeMinutes(targetMode) * 60);
     setIsRunning(false);
+    setCurrentSessionId(null);
   }, [mode, getModeMinutes]);
 
   useEffect(() => {
@@ -62,18 +68,19 @@ export default function FocusPage() {
       intervalRef.current = setInterval(() => {
         setTimeLeft(t => t - 1);
       }, 1000);
-    } else if (timeLeft === 0) {
-      // Timer completed
+    } else if (timeLeft === 0 && currentSessionId) {
+      // Timer completed - mark session as complete
+      completeSession(currentSessionId).catch(console.error);
+
       if (mode === 'focus') {
-        const newSessions = completedSessions + 1;
-        setCompletedSessions(newSessions);
         toast({
           title: 'Focus session complete!',
           description: 'Time for a break.',
         });
 
         // Determine break type
-        if (newSessions % settings.sessionsBeforeLongBreak === 0) {
+        const newSessionCount = completedFocusSessions + 1;
+        if (newSessionCount % settings.sessionsBeforeLongBreak === 0) {
           setMode('long-break');
           setTimeLeft(settings.longBreakMinutes * 60);
         } else {
@@ -90,6 +97,7 @@ export default function FocusPage() {
         setTimeLeft(settings.focusMinutes * 60);
       }
       setIsRunning(false);
+      setCurrentSessionId(null);
     }
 
     return () => {
@@ -97,9 +105,18 @@ export default function FocusPage() {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, timeLeft, mode, completedSessions, settings, toast]);
+  }, [isRunning, timeLeft, mode, settings, toast, currentSessionId, completedFocusSessions, completeSession]);
 
-  const toggleTimer = () => {
+  const toggleTimer = async () => {
+    if (!isRunning && !currentSessionId) {
+      // Starting a new session
+      try {
+        const session = await startSession(mode, getModeMinutes(mode));
+        setCurrentSessionId(session.id);
+      } catch (err) {
+        console.error('Failed to start session:', err);
+      }
+    }
     setIsRunning(!isRunning);
   };
 
@@ -107,15 +124,24 @@ export default function FocusPage() {
     setMode(newMode);
     setTimeLeft(getModeMinutes(newMode) * 60);
     setIsRunning(false);
+    setCurrentSessionId(null);
   };
 
-  const saveSettings = () => {
-    setSettings(tempSettings);
-    setTimeLeft(tempSettings.focusMinutes * 60);
-    setMode('focus');
-    setIsRunning(false);
-    setIsSettingsOpen(false);
-    toast({ title: 'Settings saved' });
+  const handleSaveSettings = async () => {
+    setSaving(true);
+    try {
+      await saveSettings(tempSettings);
+      setTimeLeft(tempSettings.focusMinutes * 60);
+      setMode('focus');
+      setIsRunning(false);
+      setCurrentSessionId(null);
+      setIsSettingsOpen(false);
+      toast({ title: 'Settings saved' });
+    } catch {
+      toast({ title: 'Error saving settings', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -128,6 +154,14 @@ export default function FocusPage() {
   const progress = ((totalSeconds - timeLeft) / totalSeconds) * 100;
   const circumference = 2 * Math.PI * 120;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -248,11 +282,11 @@ export default function FocusPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Sessions completed today</p>
-              <p className="text-2xl font-semibold">{completedSessions}</p>
+              <p className="text-2xl font-semibold">{completedFocusSessions}</p>
             </div>
             <div className="text-right">
               <p className="text-sm text-muted-foreground">Total focus time</p>
-              <p className="text-2xl font-semibold">{completedSessions * settings.focusMinutes} min</p>
+              <p className="text-2xl font-semibold">{totalFocusMinutes} min</p>
             </div>
           </div>
         </CardContent>
@@ -334,7 +368,8 @@ export default function FocusPage() {
             <Button variant="outline" onClick={() => setIsSettingsOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={saveSettings}>
+            <Button onClick={handleSaveSettings} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Save Settings
             </Button>
           </DialogFooter>

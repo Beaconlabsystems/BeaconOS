@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { RotateCcw, Check, X, Trophy, Lock, Star, ChevronRight, ArrowLeft } from 'lucide-react';
+import { RotateCcw, Check, X, Trophy, Lock, Star, ChevronRight, ArrowLeft, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { useJapanese } from '@/hooks/use-japanese';
 import { cn } from '@/lib/utils';
 
 // Types
@@ -543,6 +544,23 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
+// Default progress for initialization
+const defaultQuestAProgress: LevelProgress[] = Array.from({ length: 10 }, (_, i) => ({
+  level: i + 1,
+  questionsAnswered: 0,
+  correctAnswers: 0,
+  completed: false,
+  unlocked: i === 0,
+}));
+
+const defaultQuestBProgress: LevelProgress[] = Array.from({ length: 10 }, (_, i) => ({
+  level: i + 1,
+  questionsAnswered: 0,
+  correctAnswers: 0,
+  completed: false,
+  unlocked: false,
+}));
+
 // Mascot component
 function Mascot({ mood }: { mood: 'neutral' | 'happy' | 'thinking' | 'excited' }) {
   const expressions = {
@@ -573,33 +591,24 @@ function Mascot({ mood }: { mood: 'neutral' | 'happy' | 'thinking' | 'excited' }
 }
 
 export default function JapanesePage() {
+  const {
+    wordProgress,
+    questAProgress: dbQuestAProgress,
+    questBProgress: dbQuestBProgress,
+    loading,
+    isQuestBUnlocked,
+    updateWordProgress,
+    updateLevelProgress,
+    unlockNextLevel,
+  } = useJapanese();
+
   const [view, setView] = useState<'quests' | 'level' | 'practice'>('quests');
   const [currentQuest, setCurrentQuest] = useState<Quest>('A');
   const [currentLevel, setCurrentLevel] = useState(1);
 
-  // Level progress state
-  const [questAProgress, setQuestAProgress] = useState<LevelProgress[]>(() =>
-    Array.from({ length: 10 }, (_, i) => ({
-      level: i + 1,
-      questionsAnswered: 0,
-      correctAnswers: 0,
-      completed: false,
-      unlocked: i === 0,
-    }))
-  );
-
-  const [questBProgress, setQuestBProgress] = useState<LevelProgress[]>(() =>
-    Array.from({ length: 10 }, (_, i) => ({
-      level: i + 1,
-      questionsAnswered: 0,
-      correctAnswers: 0,
-      completed: false,
-      unlocked: false,
-    }))
-  );
-
-  // Word progress for spaced repetition
-  const [wordProgress, setWordProgress] = useState<Record<string, WordProgress>>({});
+  // Use database progress if available, otherwise use defaults
+  const questAProgress = dbQuestAProgress.length > 0 ? dbQuestAProgress : defaultQuestAProgress;
+  const questBProgress = dbQuestBProgress.length > 0 ? dbQuestBProgress : defaultQuestBProgress;
 
   // Practice state
   const [practiceWords, setPracticeWords] = useState<Word[]>([]);
@@ -613,12 +622,8 @@ export default function JapanesePage() {
 
   const currentWord = practiceWords[currentWordIndex];
   const questProgress = currentQuest === 'A' ? questAProgress : questBProgress;
-  const setQuestProgress = currentQuest === 'A' ? setQuestAProgress : setQuestBProgress;
   const questWords = currentQuest === 'A' ? QUEST_A_WORDS : QUEST_B_WORDS;
   const levelNames = currentQuest === 'A' ? LEVEL_NAMES_A : LEVEL_NAMES_B;
-
-  // Check if Quest B is unlocked (all Quest A levels completed)
-  const isQuestBUnlocked = questAProgress.every(l => l.completed);
 
   // Start a level
   const startLevel = (quest: Quest, level: number) => {
@@ -659,7 +664,7 @@ export default function JapanesePage() {
     setView('practice');
   };
 
-  const checkAnswer = () => {
+  const checkAnswer = async () => {
     if (!currentWord || showAnswer) return;
 
     const userAnswer = input.toLowerCase().trim();
@@ -683,41 +688,39 @@ export default function JapanesePage() {
 
     // Update word progress for spaced repetition
     const now = Date.now();
-    setWordProgress(prev => {
-      const existing = prev[currentWord.id] || {
-        wordId: currentWord.id,
-        correctCount: 0,
-        incorrectCount: 0,
-        lastSeen: now,
-        nextReview: now,
-        mastered: false,
-      };
+    const existing = wordProgress[currentWord.id] || {
+      wordId: currentWord.id,
+      correctCount: 0,
+      incorrectCount: 0,
+      lastSeen: now,
+      nextReview: now,
+      mastered: false,
+    };
 
-      const newCorrectCount = existing.correctCount + (isCorrect ? 1 : 0);
-      const newIncorrectCount = existing.incorrectCount + (isCorrect ? 0 : 1);
+    const newCorrectCount = existing.correctCount + (isCorrect ? 1 : 0);
+    const newIncorrectCount = existing.incorrectCount + (isCorrect ? 0 : 1);
 
-      // Calculate next review time based on spaced repetition
-      let intervalIndex = Math.min(newCorrectCount, SR_INTERVALS.length - 1);
-      if (!isCorrect) intervalIndex = Math.max(0, intervalIndex - 2);
+    // Calculate next review time based on spaced repetition
+    let intervalIndex = Math.min(newCorrectCount, SR_INTERVALS.length - 1);
+    if (!isCorrect) intervalIndex = Math.max(0, intervalIndex - 2);
 
-      const intervalMinutes = SR_INTERVALS[intervalIndex];
-      const nextReview = now + intervalMinutes * 60 * 1000;
+    const intervalMinutes = SR_INTERVALS[intervalIndex];
+    const nextReview = now + intervalMinutes * 60 * 1000;
 
-      // Mastered after 5 consecutive correct answers
-      const mastered = newCorrectCount >= 5 && newIncorrectCount === 0;
+    // Mastered after 5 consecutive correct answers
+    const mastered = newCorrectCount >= 5 && newIncorrectCount === 0;
 
-      return {
-        ...prev,
-        [currentWord.id]: {
-          wordId: currentWord.id,
-          correctCount: isCorrect ? newCorrectCount : 0, // Reset on incorrect
-          incorrectCount: newIncorrectCount,
-          lastSeen: now,
-          nextReview,
-          mastered,
-        },
-      };
-    });
+    const newProgress: WordProgress = {
+      wordId: currentWord.id,
+      correctCount: isCorrect ? newCorrectCount : 0, // Reset on incorrect
+      incorrectCount: newIncorrectCount,
+      lastSeen: now,
+      nextReview,
+      mastered,
+    };
+
+    // Save to database
+    await updateWordProgress(currentWord.id, newProgress);
   };
 
   const nextWord = () => {
@@ -733,31 +736,22 @@ export default function JapanesePage() {
     }
   };
 
-  const completeLevel = () => {
+  const completeLevel = async () => {
     const accuracy = sessionTotal > 0 ? (sessionCorrect / sessionTotal) * 100 : 0;
     const passed = accuracy >= 70; // Need 70% to pass
 
-    setQuestProgress(prev => prev.map((l, i) => {
-      if (i === currentLevel - 1) {
-        return {
-          ...l,
-          questionsAnswered: l.questionsAnswered + sessionTotal,
-          correctAnswers: l.correctAnswers + sessionCorrect,
-          completed: passed || l.completed,
-        };
-      }
-      // Unlock next level if current passed
-      if (i === currentLevel && passed) {
-        return { ...l, unlocked: true };
-      }
-      return l;
-    }));
+    const currentProgress = questProgress[currentLevel - 1];
 
-    // If Quest A level 10 completed, unlock Quest B
-    if (currentQuest === 'A' && currentLevel === 10 && passed) {
-      setQuestBProgress(prev => prev.map((l, i) =>
-        i === 0 ? { ...l, unlocked: true } : l
-      ));
+    // Update level progress
+    await updateLevelProgress(currentQuest, currentLevel, {
+      questionsAnswered: currentProgress.questionsAnswered + sessionTotal,
+      correctAnswers: currentProgress.correctAnswers + sessionCorrect,
+      completed: passed || currentProgress.completed,
+    });
+
+    // Unlock next level if passed
+    if (passed) {
+      await unlockNextLevel(currentQuest, currentLevel);
     }
 
     setView('level');
@@ -772,6 +766,14 @@ export default function JapanesePage() {
       }
     }
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   // Quest Selection View
   if (view === 'quests') {
@@ -978,7 +980,7 @@ export default function JapanesePage() {
   if (!currentWord) {
     return (
       <div className="max-w-2xl mx-auto text-center py-12">
-        <p>Loading...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto" />
       </div>
     );
   }

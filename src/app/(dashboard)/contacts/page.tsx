@@ -1,21 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { format } from 'date-fns';
 import {
   Plus,
   Search,
   Mail,
   Phone,
-  Building2,
   MapPin,
   Pencil,
   Trash2,
   ChevronDown,
-  User,
-  Tag,
+  Loader2,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,22 +33,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useContacts } from '@/hooks/use-contacts';
 import { cn } from '@/lib/utils';
 
 type ContactCategory = 'investor' | 'advisor' | 'partner' | 'customer' | 'other';
-
-interface Contact {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  company?: string;
-  role?: string;
-  category: ContactCategory;
-  notes?: string;
-  location?: string;
-  createdAt: string;
-}
 
 const CATEGORY_LABELS: Record<ContactCategory, string> = {
   investor: 'Investor',
@@ -69,52 +54,15 @@ const CATEGORY_COLORS: Record<ContactCategory, string> = {
   other: 'bg-muted text-muted-foreground',
 };
 
-const MOCK_CONTACTS: Contact[] = [
-  {
-    id: '1',
-    name: 'Sarah Chen',
-    email: 'sarah@vcfund.com',
-    phone: '+44 7700 900123',
-    company: 'Horizon Ventures',
-    role: 'Partner',
-    category: 'investor',
-    notes: 'Interested in B2B SaaS. Met at TechCrunch Disrupt.',
-    location: 'London, UK',
-    createdAt: '2025-11-15',
-  },
-  {
-    id: '2',
-    name: 'James Wilson',
-    email: 'j.wilson@advisory.co',
-    company: 'Wilson Advisory',
-    role: 'CEO',
-    category: 'advisor',
-    notes: 'Former CTO at Deliveroo. Great for technical advice.',
-    location: 'Cambridge, UK',
-    createdAt: '2025-10-20',
-  },
-  {
-    id: '3',
-    name: 'Emily Torres',
-    email: 'emily@bigcorp.com',
-    phone: '+1 555 123 4567',
-    company: 'BigCorp Inc',
-    role: 'Head of Innovation',
-    category: 'customer',
-    notes: 'Running pilot program. Decision maker for enterprise deal.',
-    location: 'New York, USA',
-    createdAt: '2025-12-01',
-  },
-];
-
 export default function ContactsPage() {
   const { toast } = useToast();
-  const [contacts, setContacts] = useState<Contact[]>(MOCK_CONTACTS);
+  const { contacts, loading, addContact, updateContact, deleteContact } = useContacts();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<ContactCategory | 'all'>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -142,54 +90,57 @@ export default function ContactsPage() {
     }
     groups[letter].push(contact);
     return groups;
-  }, {} as Record<string, Contact[]>);
+  }, {} as Record<string, typeof contacts>);
 
   const sortedLetters = Object.keys(groupedContacts).sort();
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name) return;
 
-    if (editingContact) {
-      setContacts(contacts.map(c =>
-        c.id === editingContact.id ? { ...c, ...formData } : c
-      ));
-      toast({ title: 'Contact updated' });
-    } else {
-      const newContact: Contact = {
-        id: Date.now().toString(),
-        ...formData,
-        createdAt: format(new Date(), 'yyyy-MM-dd'),
-      };
-      setContacts([newContact, ...contacts]);
-      toast({ title: 'Contact added' });
+    setSaving(true);
+    try {
+      if (editingContactId) {
+        await updateContact(editingContactId, formData);
+        toast({ title: 'Contact updated' });
+      } else {
+        await addContact(formData);
+        toast({ title: 'Contact added' });
+      }
+      closeDialog();
+    } catch {
+      toast({ title: 'Error saving contact', variant: 'destructive' });
+    } finally {
+      setSaving(false);
     }
-
-    closeDialog();
   };
 
-  const handleEdit = (contact: Contact) => {
-    setEditingContact(contact);
+  const handleEdit = (contact: typeof contacts[0]) => {
+    setEditingContactId(contact.id);
     setFormData({
       name: contact.name,
       email: contact.email || '',
       phone: contact.phone || '',
       company: contact.company || '',
       role: contact.role || '',
-      category: contact.category,
+      category: contact.category as ContactCategory,
       notes: contact.notes || '',
       location: contact.location || '',
     });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setContacts(contacts.filter(c => c.id !== id));
-    toast({ title: 'Contact removed' });
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteContact(id);
+      toast({ title: 'Contact removed' });
+    } catch {
+      toast({ title: 'Error deleting contact', variant: 'destructive' });
+    }
   };
 
   const closeDialog = () => {
     setIsDialogOpen(false);
-    setEditingContact(null);
+    setEditingContactId(null);
     setFormData({
       name: '',
       email: '',
@@ -201,6 +152,14 @@ export default function ContactsPage() {
       location: '',
     });
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -287,8 +246,8 @@ export default function ContactsPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge className={CATEGORY_COLORS[contact.category]}>
-                            {CATEGORY_LABELS[contact.category]}
+                          <Badge className={CATEGORY_COLORS[contact.category as ContactCategory]}>
+                            {CATEGORY_LABELS[contact.category as ContactCategory]}
                           </Badge>
                           <ChevronDown className={cn(
                             'h-4 w-4 text-muted-foreground transition-transform',
@@ -361,7 +320,7 @@ export default function ContactsPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {editingContact ? 'Edit Contact' : 'Add Contact'}
+              {editingContactId ? 'Edit Contact' : 'Add Contact'}
             </DialogTitle>
           </DialogHeader>
 
@@ -463,8 +422,9 @@ export default function ContactsPage() {
             <Button variant="outline" onClick={closeDialog}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={!formData.name}>
-              {editingContact ? 'Save' : 'Add Contact'}
+            <Button onClick={handleSave} disabled={!formData.name || saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {editingContactId ? 'Save' : 'Add Contact'}
             </Button>
           </DialogFooter>
         </DialogContent>

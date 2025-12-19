@@ -7,7 +7,6 @@ import {
   Pencil,
   Trash2,
   Check,
-  GripVertical,
   ChevronDown,
   ChevronUp,
   Target,
@@ -16,8 +15,9 @@ import {
   DollarSign,
   Users,
   Building,
+  Loader2,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,21 +38,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useRoadmap } from '@/hooks/use-roadmap';
 import { cn } from '@/lib/utils';
 
 type MilestoneStatus = 'planned' | 'in-progress' | 'completed';
 type MilestoneType = 'funding' | 'product' | 'team' | 'revenue' | 'other';
-
-interface Milestone {
-  id: string;
-  title: string;
-  description?: string;
-  type: MilestoneType;
-  status: MilestoneStatus;
-  targetDate?: string;
-  completedDate?: string;
-  order: number;
-}
 
 const TYPE_ICONS: Record<MilestoneType, typeof Rocket> = {
   funding: DollarSign,
@@ -84,79 +74,13 @@ const STATUS_LABELS: Record<MilestoneStatus, string> = {
   completed: 'Completed',
 };
 
-const MOCK_MILESTONES: Milestone[] = [
-  {
-    id: '1',
-    title: 'MVP Launch',
-    description: 'Launch minimum viable product to first beta users',
-    type: 'product',
-    status: 'completed',
-    targetDate: '2025-06-01',
-    completedDate: '2025-05-28',
-    order: 1,
-  },
-  {
-    id: '2',
-    title: 'SEIS/EIS Investment',
-    description: 'Close £150k angel round with SEIS/EIS tax relief for investors',
-    type: 'funding',
-    status: 'in-progress',
-    targetDate: '2025-09-01',
-    order: 2,
-  },
-  {
-    id: '3',
-    title: 'First 10 Paying Customers',
-    description: 'Achieve product-market fit with recurring revenue',
-    type: 'revenue',
-    status: 'in-progress',
-    targetDate: '2025-10-01',
-    order: 3,
-  },
-  {
-    id: '4',
-    title: 'Hire CTO',
-    description: 'Bring on technical co-founder or senior technical lead',
-    type: 'team',
-    status: 'planned',
-    targetDate: '2025-12-01',
-    order: 4,
-  },
-  {
-    id: '5',
-    title: 'Seed Round',
-    description: '£500k-£1M seed round from institutional investors',
-    type: 'funding',
-    status: 'planned',
-    targetDate: '2026-03-01',
-    order: 5,
-  },
-  {
-    id: '6',
-    title: '£100k ARR',
-    description: 'Reach annual recurring revenue milestone',
-    type: 'revenue',
-    status: 'planned',
-    targetDate: '2026-06-01',
-    order: 6,
-  },
-  {
-    id: '7',
-    title: 'Series A',
-    description: '£3-5M Series A to scale sales and product',
-    type: 'funding',
-    status: 'planned',
-    targetDate: '2027-01-01',
-    order: 7,
-  },
-];
-
 export default function RoadmapPage() {
   const { toast } = useToast();
-  const [milestones, setMilestones] = useState<Milestone[]>(MOCK_MILESTONES);
+  const { milestones, loading, addMilestone, updateMilestone, deleteMilestone, updateStatus } = useRoadmap();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null);
+  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -165,64 +89,75 @@ export default function RoadmapPage() {
     targetDate: '',
   });
 
-  const sortedMilestones = [...milestones].sort((a, b) => a.order - b.order);
+  const sortedMilestones = [...milestones].sort((a, b) => a.order_index - b.order_index);
   const completedCount = milestones.filter(m => m.status === 'completed').length;
   const inProgressCount = milestones.filter(m => m.status === 'in-progress').length;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.title) return;
 
-    if (editingMilestone) {
-      setMilestones(milestones.map(m =>
-        m.id === editingMilestone.id ? { ...m, ...formData } : m
-      ));
-      toast({ title: 'Milestone updated' });
-    } else {
-      const newMilestone: Milestone = {
-        id: Date.now().toString(),
-        ...formData,
-        order: milestones.length + 1,
-      };
-      setMilestones([...milestones, newMilestone]);
-      toast({ title: 'Milestone added' });
+    setSaving(true);
+    try {
+      if (editingMilestoneId) {
+        await updateMilestone(editingMilestoneId, {
+          title: formData.title,
+          description: formData.description || undefined,
+          type: formData.type,
+          status: formData.status,
+          target_date: formData.targetDate || undefined,
+        });
+        toast({ title: 'Milestone updated' });
+      } else {
+        await addMilestone({
+          title: formData.title,
+          description: formData.description || undefined,
+          type: formData.type,
+          status: formData.status,
+          targetDate: formData.targetDate || undefined,
+        });
+        toast({ title: 'Milestone added' });
+      }
+      closeDialog();
+    } catch {
+      toast({ title: 'Error saving milestone', variant: 'destructive' });
+    } finally {
+      setSaving(false);
     }
-
-    closeDialog();
   };
 
-  const handleEdit = (milestone: Milestone) => {
-    setEditingMilestone(milestone);
+  const handleEdit = (milestone: typeof milestones[0]) => {
+    setEditingMilestoneId(milestone.id);
     setFormData({
       title: milestone.title,
       description: milestone.description || '',
-      type: milestone.type,
-      status: milestone.status,
-      targetDate: milestone.targetDate || '',
+      type: milestone.type as MilestoneType,
+      status: milestone.status as MilestoneStatus,
+      targetDate: milestone.target_date || '',
     });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setMilestones(milestones.filter(m => m.id !== id));
-    toast({ title: 'Milestone removed' });
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteMilestone(id);
+      toast({ title: 'Milestone removed' });
+    } catch {
+      toast({ title: 'Error deleting milestone', variant: 'destructive' });
+    }
   };
 
-  const handleStatusChange = (id: string, newStatus: MilestoneStatus) => {
-    setMilestones(milestones.map(m =>
-      m.id === id
-        ? {
-            ...m,
-            status: newStatus,
-            completedDate: newStatus === 'completed' ? format(new Date(), 'yyyy-MM-dd') : undefined,
-          }
-        : m
-    ));
-    toast({ title: `Milestone ${STATUS_LABELS[newStatus].toLowerCase()}` });
+  const handleStatusChange = async (id: string, newStatus: MilestoneStatus) => {
+    try {
+      await updateStatus(id, newStatus);
+      toast({ title: `Milestone ${STATUS_LABELS[newStatus].toLowerCase()}` });
+    } catch {
+      toast({ title: 'Error updating status', variant: 'destructive' });
+    }
   };
 
   const closeDialog = () => {
     setIsDialogOpen(false);
-    setEditingMilestone(null);
+    setEditingMilestoneId(null);
     setFormData({
       title: '',
       description: '',
@@ -231,6 +166,14 @@ export default function RoadmapPage() {
       targetDate: '',
     });
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -274,8 +217,8 @@ export default function RoadmapPage() {
         <div className="timeline-line" />
 
         <div className="space-y-4">
-          {sortedMilestones.map((milestone, index) => {
-            const Icon = TYPE_ICONS[milestone.type];
+          {sortedMilestones.map((milestone) => {
+            const Icon = TYPE_ICONS[milestone.type as MilestoneType];
             const isExpanded = expandedId === milestone.id;
 
             return (
@@ -302,7 +245,7 @@ export default function RoadmapPage() {
                       onClick={() => setExpandedId(isExpanded ? null : milestone.id)}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={cn('p-2 rounded-lg bg-secondary', TYPE_COLORS[milestone.type])}>
+                        <div className={cn('p-2 rounded-lg bg-secondary', TYPE_COLORS[milestone.type as MilestoneType])}>
                           <Icon className="h-4 w-4" />
                         </div>
                         <div>
@@ -314,13 +257,13 @@ export default function RoadmapPage() {
                           </h3>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant="secondary" className="text-xs">
-                              {TYPE_LABELS[milestone.type]}
+                              {TYPE_LABELS[milestone.type as MilestoneType]}
                             </Badge>
-                            {milestone.targetDate && (
+                            {milestone.target_date && (
                               <span className="text-xs text-muted-foreground">
-                                {milestone.status === 'completed' && milestone.completedDate
-                                  ? `Completed ${format(parseISO(milestone.completedDate), 'MMM d, yyyy')}`
-                                  : `Target: ${format(parseISO(milestone.targetDate), 'MMM yyyy')}`}
+                                {milestone.status === 'completed' && milestone.completed_date
+                                  ? `Completed ${format(parseISO(milestone.completed_date), 'MMM d, yyyy')}`
+                                  : `Target: ${format(parseISO(milestone.target_date), 'MMM yyyy')}`}
                               </span>
                             )}
                           </div>
@@ -333,7 +276,7 @@ export default function RoadmapPage() {
                             milestone.status === 'in-progress' && 'border-blue-500 text-blue-500'
                           )}
                         >
-                          {STATUS_LABELS[milestone.status]}
+                          {STATUS_LABELS[milestone.status as MilestoneStatus]}
                         </Badge>
                         {isExpanded ? (
                           <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -431,7 +374,7 @@ export default function RoadmapPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingMilestone ? 'Edit Milestone' : 'Add Milestone'}
+              {editingMilestoneId ? 'Edit Milestone' : 'Add Milestone'}
             </DialogTitle>
           </DialogHeader>
 
@@ -507,8 +450,9 @@ export default function RoadmapPage() {
             <Button variant="outline" onClick={closeDialog}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={!formData.title}>
-              {editingMilestone ? 'Save' : 'Add Milestone'}
+            <Button onClick={handleSave} disabled={!formData.title || saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {editingMilestoneId ? 'Save' : 'Add Milestone'}
             </Button>
           </DialogFooter>
         </DialogContent>

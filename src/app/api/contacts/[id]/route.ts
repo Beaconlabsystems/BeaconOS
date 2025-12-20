@@ -7,11 +7,15 @@ export async function PATCH(
 ) {
   const supabase = await createClient();
   const { id } = await params;
-  const body = await request.json();
+  const body: unknown = await request.json();
+
+  if (typeof body !== 'object' || body === null) {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
 
   const { data, error } = await supabase
     .from('contacts')
-    .update(body)
+    .update(body as never)
     .eq('id', id)
     .select()
     .single();

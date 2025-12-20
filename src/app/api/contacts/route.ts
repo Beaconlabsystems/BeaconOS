@@ -3,9 +3,9 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function GET() {
   const supabase = await createClient();
+  const contactsTable = (supabase as any).from('contacts');
 
-  const { data, error } = await supabase
-    .from('contacts')
+  const { data, error } = await contactsTable
     .select('*')
     .order('name', { ascending: true });
 
@@ -18,10 +18,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
+  const contactsTable = (supabase as any).from('contacts');
   const body = await request.json();
 
-  const { data, error } = await supabase
-    .from('contacts')
+  const { data, error } = await contactsTable
     .insert({
       name: body.name,
       email: body.email,

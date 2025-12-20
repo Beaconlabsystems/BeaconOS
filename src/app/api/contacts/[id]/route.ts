@@ -6,6 +6,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
+  const contactsTable = (supabase as any).from('contacts');
   const { id } = await params;
   const body: unknown = await request.json();
 
@@ -13,9 +14,8 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
-    .from('contacts')
-    .update(body as never)
+  const { data, error } = await contactsTable
+    .update(body)
     .eq('id', id)
     .select()
     .single();
@@ -32,10 +32,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
+  const contactsTable = (supabase as any).from('contacts');
   const { id } = await params;
 
-  const { error } = await supabase
-    .from('contacts')
+  const { error } = await contactsTable
     .delete()
     .eq('id', id);
 
